@@ -291,6 +291,14 @@ def announce_product_image(sender, instance, created, **kwargs):
             return
 
 
+        # Avoid double posting: if Product was just created (within 10 seconds), skip this post
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        created_at = getattr(product, 'created_at', None)
+        if created_at and (now - created_at).total_seconds() < 20:
+            print(f"[ProductImage signal] Skipping post for product {product.id} to avoid double posting (Product just created)")
+            return
+
         # Build sizes/stock/price string
         size_lines = []
         for size_obj in product.sizes.all():
