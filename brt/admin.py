@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django import forms
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import reverse, path
+from django.utils.safestring import mark_safe
+from django.utils import timezone
+from django.contrib import messages
 from .models import Product, ProductImage, ProductSize, Order, OrderItem
 
 
@@ -54,8 +57,8 @@ class ProductSizeInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'brand', 'category', 'base_price', 'is_on_sale', 'is_trending', 'in_stock', 'created_at']
-    list_filter = ['brand', 'category', 'is_on_sale', 'is_trending', 'created_at']
+    list_display = ['name', 'brand', 'category', 'base_price', 'is_on_sale', 'is_trending', 'in_stock', 'is_published', 'created_at', 'publish_button']
+    list_filter = ['brand', 'category', 'is_on_sale', 'is_trending', 'is_published', 'created_at']
     search_fields = ['name', 'brand', 'description']
     inlines = [ProductImageInline, ProductSizeInline]
     
@@ -94,6 +97,70 @@ class ProductAdmin(admin.ModelAdmin):
         for instance in instances:
             instance.save()
         formset.save_m2m()
+
+    actions = ['publish_selected']
+
+    def publish_selected(self, request, queryset):
+        """Admin action to publish all selected products."""
+        count = 0
+        for product in queryset:
+            if not getattr(product, 'is_published', False):
+                product.is_published = True
+                product.published_at = timezone.now()
+                product.save(update_fields=['is_published', 'published_at'])
+                # Call posting helpers (if available)
+                try:
+                    from .signals import post_to_facebook_page, post_to_instagram
+                    # Use primary image if available
+                    primary = product.primary_image()
+                    image_url = primary.image.url if primary and getattr(primary, 'image', None) else None
+                    post_to_facebook_page(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+                    if image_url:
+                        post_to_instagram(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+                except Exception:
+                    # don't block the admin action on posting errors
+                    pass
+                count += 1
+        self.message_user(request, f"Published {count} products.")
+    publish_selected.short_description = 'Publish selected products (post to FB/IG)'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path('<int:product_id>/publish/', self.admin_site.admin_view(self.publish_product_view), name='brt_product_publish'),
+        ]
+        return custom + urls
+
+    def publish_button(self, obj):
+        if getattr(obj, 'is_published', False):
+            return mark_safe('<span style="color:green">Published</span>')
+        url = reverse('admin:brt_product_publish', args=[obj.pk])
+        return format_html('<a class="button" href="{}">Publish</a>', url)
+    publish_button.short_description = 'Publish'
+
+    def publish_product_view(self, request, product_id, *args, **kwargs):
+        """Admin view to publish a single product and post to FB/IG."""
+        product = Product.objects.filter(pk=product_id).first()
+        if not product:
+            self.message_user(request, 'Product not found', level=messages.ERROR)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/admin/'))
+        # Mark published
+        product.is_published = True
+        product.published_at = timezone.now()
+        product.save(update_fields=['is_published', 'published_at'])
+        # Post to FB/IG
+        try:
+            from .signals import post_to_facebook_page, post_to_instagram
+            primary = product.primary_image()
+            image_url = primary.image.url if primary and getattr(primary, 'image', None) else None
+            post_to_facebook_page(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+            if image_url:
+                post_to_instagram(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+            self.message_user(request, 'Product published and posted to social media')
+        except Exception as e:
+            self.message_user(request, f'Published but failed to post: {e}', level=messages.WARNING)
+        # Redirect back to product change list
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/admin/'))
 
 
 class OrderItemInline(admin.TabularInline):

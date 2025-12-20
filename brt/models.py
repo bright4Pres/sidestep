@@ -21,6 +21,9 @@ class Product(models.Model):
     is_on_sale = models.BooleanField(default=False)  # For sale items
     is_trending = models.BooleanField(default=False)  # For trending items
     created_at = models.DateTimeField(auto_now_add=True)
+    # Publishing status for admin manual publish control
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
         return self.name
