@@ -115,9 +115,22 @@ class ProductAdmin(admin.ModelAdmin):
                     # Use primary image if available
                     primary = product.primary_image()
                     image_url = primary.image.url if primary and getattr(primary, 'image', None) else None
-                    post_to_facebook_page(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+                    # Build sizes/stock/price string
+                    size_lines = []
+                    for size_obj in product.sizes.all():
+                        size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+                        size_lines.append(size_str)
+                    sizes_info = "\n".join(size_lines)
+                    message = (
+                        f"🔥 Fresh Drop Alert! 🔥\n"
+                        f"Step up your game with the new {product.brand} {product.name}!\n\n"
+                        f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+                        f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{product.id}/\n"
+                        f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
+                    )
+                    post_to_facebook_page(message, image_url)
                     if image_url:
-                        post_to_instagram(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+                        post_to_instagram(message, image_url)
                 except Exception:
                     # don't block the admin action on posting errors
                     pass
@@ -154,9 +167,22 @@ class ProductAdmin(admin.ModelAdmin):
             from .signals import post_to_facebook_page, post_to_instagram
             primary = product.primary_image()
             image_url = primary.image.url if primary and getattr(primary, 'image', None) else None
-            post_to_facebook_page(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+            # Build sizes/stock/price string
+            size_lines = []
+            for size_obj in product.sizes.all():
+                size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+                size_lines.append(size_str)
+            sizes_info = "\n".join(size_lines)
+            message = (
+                f"🔥 Fresh Drop Alert! 🔥\n"
+                f"Step up your game with the new {product.brand} {product.name}!\n\n"
+                f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+                f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{product.id}/\n"
+                f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
+            )
+            post_to_facebook_page(message, image_url)
             if image_url:
-                post_to_instagram(f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/.", image_url)
+                post_to_instagram(message, image_url)
             self.message_user(request, 'Product published and posted to social media')
         except Exception as e:
             self.message_user(request, f'Published but failed to post: {e}', level=messages.WARNING)

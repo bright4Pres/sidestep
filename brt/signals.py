@@ -188,9 +188,32 @@ def post_to_instagram(message, image_url=None):
         if 'error' in media_result:
             print('[Instagram] media error details:', media_result.get('error'))
             return
+
         creation_id = media_result.get('id')
         if not creation_id:
             print('[Instagram] Failed to get creation id from media response')
+            return
+
+        # Poll for status until media is ready
+        status_url = f'https://graph.facebook.com/v19.0/{creation_id}?fields=status_code&access_token={access_token}&appsecret_proof={appsecret_proof}'
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            try:
+                status_resp = requests.get(status_url, timeout=10)
+                status_json = status_resp.json()
+                status_code = status_json.get('status_code')
+                print(f'[Instagram] Media status attempt {attempt+1}: {status_code}')
+                if status_code == 'FINISHED':
+                    break
+                elif status_code == 'ERROR':
+                    print(f'[Instagram] Media processing error: {status_json}')
+                    return
+            except Exception as e:
+                print(f'[Instagram] Error polling media status: {e}')
+                return
+            time.sleep(2)
+        else:
+            print('[Instagram] Media was not ready after polling. Skipping publish.')
             return
 
         publish_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media_publish'
