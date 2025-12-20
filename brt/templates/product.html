@@ -1,0 +1,172 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ product.name }} - BRT Sidestep</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/product.css' %}">
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="logo">BRT Sidestep</a>
+        <nav class="nav_links">
+            <a href="/shop/">Shop</a>
+            <a href="/">Home</a>
+        </nav>
+    </header>
+
+    <main class="product_page">
+        <!-- Image Slider -->
+        <section class="gallery">
+            <div class="slider_container">
+                <button class="slider_arrow prev" onclick="changeSlide(-1)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                
+                <div class="slides_wrapper">
+                    {% for img in product.images.all %}
+                    <div class="slide {% if forloop.first %}active{% endif %}" data-index="{{ forloop.counter0 }}">
+                        <img src="{{ img.image.url }}" alt="{{ product.name }}">
+                    </div>
+                    {% empty %}
+                    <div class="slide active">
+                        <img src="{% static 'images/placeholder.png' %}" alt="No image available">
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button class="slider_arrow next" onclick="changeSlide(1)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            
+            <!-- Thumbnail Navigation -->
+            <div class="thumbnails">
+                {% for img in product.images.all %}
+                <div class="thumbnail {% if forloop.first %}active{% endif %}" data-index="{{ forloop.counter0 }}">
+                    <img src="{{ img.image.url }}" alt="Thumbnail {{ forloop.counter }}">
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Product Details -->
+        <section class="details">
+            <span class="brand">{{ product.brand }}</span>
+            <h1 class="product_name">{{ product.name }}</h1>
+            
+            <div class="price_display">
+                <span class="price">{{ product.price_range }}</span>
+                {% if product.is_on_sale %}
+                <span class="sale_badge">SALE</span>
+                {% endif %}
+            </div>
+
+            <div class="size_section">
+                <h3>Select Size <span>(US)</span></h3>
+                <div class="size_grid">
+                    {% for size in product.sizes.all %}
+                    <button class="size_btn {% if size.stock == 0 %}out_of_stock{% endif %}" 
+                            data-size="{{ size.size }}" 
+                            data-price="{{ size.price }}"
+                            data-stock="{{ size.stock }}"
+                            {% if size.stock == 0 %}disabled{% endif %}>
+                        {{ size.size|slice:"3:" }}
+                        {% if size.stock == 0 %}<span class="x_mark">✕</span>{% endif %}
+                    </button>
+                    {% empty %}
+                    <p class="no_sizes">No sizes available</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="selected_info">
+                <p>Selected: <span id="selected_size">-</span></p>
+                <p>Price: <span id="selected_price">{{ product.price_range }}</span></p>
+            </div>
+
+            <div class="actions">
+                <button class="add_to_cart" disabled>Add to Cart</button>
+                <a href="/shop/" class="back_to_shop">Continue Shopping</a>
+            </div>
+
+            <div class="description">
+                <h3>Description</h3>
+                <p>{{ product.description }}</p>
+            </div>
+
+            <div class="product_meta">
+                <p><strong>Category:</strong> {{ product.get_category_display }}</p>
+                {% if product.in_stock %}
+                <p class="in_stock"><i class="fas fa-check-circle"></i> In Stock</p>
+                {% else %}
+                <p class="out_of_stock_text"><i class="fas fa-times-circle"></i> Out of Stock</p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const thumbnails = document.querySelectorAll('.thumbnail');
+        const totalSlides = slides.length;
+
+        function showSlide(index) {
+            if (index >= totalSlides) currentSlide = 0;
+            if (index < 0) currentSlide = totalSlides - 1;
+            
+            slides.forEach(slide => slide.classList.remove('active'));
+            thumbnails.forEach(thumb => thumb.classList.remove('active'));
+            
+            slides[currentSlide].classList.add('active');
+            if (thumbnails[currentSlide]) {
+                thumbnails[currentSlide].classList.add('active');
+            }
+        }
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            showSlide(currentSlide);
+        }
+
+        function goToSlide(index) {
+            currentSlide = index;
+            showSlide(currentSlide);
+        }
+
+        // Thumbnail click navigation
+        thumbnails.forEach(thumb => {
+            thumb.addEventListener('click', () => {
+                goToSlide(parseInt(thumb.dataset.index));
+            });
+        });
+
+        // Arrow key navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+            if (e.key === 'ArrowRight') changeSlide(1);
+        });
+
+        // Size selection
+        const sizeButtons = document.querySelectorAll('.size_btn:not([disabled])');
+        const selectedSizeSpan = document.getElementById('selected_size');
+        const selectedPriceSpan = document.getElementById('selected_price');
+        const addToCartBtn = document.querySelector('.add_to_cart');
+
+        sizeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                sizeButtons.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                
+                selectedSizeSpan.textContent = btn.dataset.size;
+                selectedPriceSpan.textContent = '₱' + parseFloat(btn.dataset.price).toLocaleString();
+                addToCartBtn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>

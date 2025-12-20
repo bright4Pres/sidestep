@@ -15,7 +15,7 @@ class Product(models.Model):
     
     name = models.CharField(max_length=255)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=67420, help_text="Starting price for display")
     brand = models.CharField(max_length=100, blank=True)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='new')
     is_on_sale = models.BooleanField(default=False)  # For sale items
@@ -28,6 +28,24 @@ class Product(models.Model):
     def in_stock(self):
         return self.sizes.filter(stock__gt=0).exists()
     
+    def min_price(self):
+        """Get the lowest price from available sizes"""
+        min_p = self.sizes.filter(stock__gt=0).order_by('price').first()
+        return min_p.price if min_p else self.base_price
+    
+    def max_price(self):
+        """Get the highest price from available sizes"""
+        max_p = self.sizes.filter(stock__gt=0).order_by('-price').first()
+        return max_p.price if max_p else self.base_price
+    
+    def price_range(self):
+        """Return price range string for display"""
+        min_p = self.min_price()
+        max_p = self.max_price()
+        if min_p == max_p:
+            return f"₱{min_p}"
+        return f"₱{min_p} - ₱{max_p}"
+    
     def primary_image(self):
         """Get the primary image or first image"""
         img = self.images.filter(is_primary=True).first()
@@ -36,9 +54,26 @@ class Product(models.Model):
         return img
 
 
+def product_image_path(instance, filename):
+    """
+    Upload images to: products/brand/shoe_name/filename
+    Example: products/nike/air_jordan_1/image1.jpg
+    """
+    import re
+    # Clean brand name (lowercase, replace spaces with underscores, remove special chars)
+    brand = instance.product.brand.lower() if instance.product.brand else 'unknown_brand'
+    brand = re.sub(r'[^a-z0-9]+', '_', brand).strip('_')
+    
+    # Clean product name
+    product_name = instance.product.name.lower()
+    product_name = re.sub(r'[^a-z0-9]+', '_', product_name).strip('_')
+    
+    return f'products/{brand}/{product_name}/{filename}'
+
+
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='products/')
+    image = models.ImageField(upload_to=product_image_path)
     is_primary = models.BooleanField(default=False)
     order = models.PositiveIntegerField(default=0)
     
@@ -54,10 +89,22 @@ class ProductImage(models.Model):
             existing_count = ProductImage.objects.filter(product=self.product).count()
             if existing_count >= 5:
                 raise ValueError("Maximum 5 images per product")
-        # If this is set as primary, unset others
+        
+        # If this is set as primary, unset all others for this product
         if self.is_primary:
-            ProductImage.objects.filter(product=self.product, is_primary=True).update(is_primary=False)
+            ProductImage.objects.filter(product=self.product, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+        
+        # Auto-set order if not provided
+        if self.order == 0 and not self.pk:
+            max_order = ProductImage.objects.filter(product=self.product).aggregate(models.Max('order'))['order__max']
+            self.order = (max_order or 0) + 1
+        
         super().save(*args, **kwargs)
+        
+        # If no primary image exists for this product, make this one primary
+        if not ProductImage.objects.filter(product=self.product, is_primary=True).exists():
+            self.is_primary = True
+            super().save(update_fields=['is_primary'])
 
 
 class ProductSize(models.Model):
@@ -84,6 +131,7 @@ class ProductSize(models.Model):
     
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sizes')
     size = models.CharField(max_length=10, choices=SIZE_CHOICES)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Leave at 0 to use base price")
     stock = models.IntegerField(default=0)
     
     class Meta:
@@ -92,6 +140,12 @@ class ProductSize(models.Model):
     
     def __str__(self):
         return f"{self.product.name} - {self.size} ({self.stock} in stock)"
+    
+    def save(self, *args, **kwargs):
+        # If price is 0 (default), use the product's base_price
+        if self.price == 0:
+            self.price = self.product.base_price
+        super().save(*args, **kwargs)
 
 
 class Order(models.Model):

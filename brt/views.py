@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
 from .models import Order, OrderItem, Product, ProductSize
 from django.db.models import Min, Max
@@ -6,6 +6,19 @@ import uuid
 
 def index(request):
     return render(request, 'landingpage.html')
+
+def product_detail(request, product_id):
+    """Display single product detail page with images slider and size selection"""
+    product = get_object_or_404(Product.objects.prefetch_related('images', 'sizes'), pk=product_id)
+    
+    # Get sizes with stock and price info
+    sizes = product.sizes.all().order_by('size')
+    
+    context = {
+        'product': product,
+        'sizes': sizes,
+    }
+    return render(request, 'product.html', context)
 
 def shop(request):
     products = Product.objects.prefetch_related('images', 'sizes').all()
@@ -20,8 +33,8 @@ def shop(request):
     # Get all categories for filter
     all_categories = Product.CATEGORY_CHOICES
     
-    # Get price range for filter
-    price_range = Product.objects.aggregate(min_price=Min('price'), max_price=Max('price'))
+    # Get price range for filter (from ProductSize prices)
+    price_range = ProductSize.objects.aggregate(min_price=Min('price'), max_price=Max('price'))
     
     # Filter by category (from landing page links)
     category = request.GET.get('category')
@@ -51,13 +64,13 @@ def shop(request):
     if selected_sizes:
         products = products.filter(sizes__size__in=selected_sizes, sizes__stock__gt=0).distinct()
     
-    # Filter by price range
+    # Filter by price range (checks if any size falls within range)
     min_price = request.GET.get('min_price')
     max_price = request.GET.get('max_price')
     if min_price:
-        products = products.filter(price__gte=min_price)
+        products = products.filter(sizes__price__gte=min_price).distinct()
     if max_price:
-        products = products.filter(price__lte=max_price)
+        products = products.filter(sizes__price__lte=max_price).distinct()
     
     # Filter by search query
     search = request.GET.get('q')
@@ -67,9 +80,9 @@ def shop(request):
     # Sort products
     sort = request.GET.get('sort', 'newest')
     if sort == 'price_low':
-        products = products.order_by('price')
+        products = products.order_by('base_price')
     elif sort == 'price_high':
-        products = products.order_by('-price')
+        products = products.order_by('-base_price')
     elif sort == 'name':
         products = products.order_by('name')
     else:  # newest
