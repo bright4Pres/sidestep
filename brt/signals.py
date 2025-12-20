@@ -236,7 +236,21 @@ def announce_new_shoe(sender, instance, created, **kwargs):
             time.sleep(1)
 
         print(f"[Signal] Product image_url after polling: {image_url}")
-        message = f"A new shoe is now available! {instance.brand} {instance.name}! Check it out on: https://www.sidestep.studio/product/{instance.id}/. For inquiries, DM us on Facebook or Instagram!"
+
+        # Build sizes/stock/price string
+        size_lines = []
+        for size_obj in instance.sizes.all():
+            size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+            size_lines.append(size_str)
+        sizes_info = "\n".join(size_lines)
+
+        message = (
+            f"🔥 Fresh Drop Alert! 🔥\n"
+            f"Step up your game with the new {instance.brand} {instance.name}!\n\n"
+            f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+            f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{instance.id}/\n"
+            f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
+        )
 
         # Post to Facebook (with image if available)
         post_to_facebook_page(message, image_url)
@@ -266,8 +280,21 @@ def announce_product_image(sender, instance, created, **kwargs):
         if not image_url:
             return
 
-        # Build a message similar to the product announcement
-        message = f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://www.sidestep.studio/product/{product.id}/. For inquiries, DM us on Facebook or Instagram!"
+
+        # Build sizes/stock/price string
+        size_lines = []
+        for size_obj in product.sizes.all():
+            size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+            size_lines.append(size_str)
+        sizes_info = "\n".join(size_lines)
+
+        message = (
+            f"🚨 New Photos Just In! 🚨\n"
+            f"Check out the {product.brand} {product.name}—now with more angles!\n\n"
+            f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+            f"See all the details: https://www.sidestep.studio/product/{product.id}/\n"
+            f"Got questions or want to reserve? Slide into our DMs! #sidestep #sneakerupdate"
+        )
 
         print(f"[ProductImage signal] Posting image for product {product.id}: {image_url}")
         # Post photo to Facebook (this will create a new post containing the image)
