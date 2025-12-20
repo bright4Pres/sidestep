@@ -15,6 +15,7 @@ def post_to_instagram(message, image_url=None):
     if not image_url:
         print('Image URL required for Instagram post')
         return
+    print(f"[Instagram] Using image_url: {image_url}")
     # Step 1: Create media object
     media_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
     media_data = {
@@ -25,10 +26,10 @@ def post_to_instagram(message, image_url=None):
     try:
         media_resp = requests.post(media_url, data=media_data)
         media_result = media_resp.json()
-        print('Instagram media response:', media_result)
+        print('[Instagram] media response:', media_result)
         creation_id = media_result.get('id')
         if not creation_id:
-            print('Failed to create Instagram media object')
+            print('[Instagram] Failed to create media object')
             return
         # Step 2: Publish media object
         publish_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media_publish'
@@ -37,9 +38,9 @@ def post_to_instagram(message, image_url=None):
             'access_token': access_token
         }
         publish_resp = requests.post(publish_url, data=publish_data)
-        print('Instagram publish response:', publish_resp.json())
+        print('[Instagram] publish response:', publish_resp.json())
     except Exception as e:
-        print('Error posting to Instagram:', e)
+        print('[Instagram] Error posting:', e)
 
 def post_to_facebook_page(message, image_url=None):
     page_id = getattr(settings, 'FACEBOOK_PAGE_ID', None)
@@ -48,6 +49,7 @@ def post_to_facebook_page(message, image_url=None):
         print('FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN not set')
         return
     if image_url:
+        print(f"[Facebook] Using image_url: {image_url}")
         url = f'https://graph.facebook.com/{page_id}/photos'
         data = {
             'caption': message,
@@ -62,9 +64,9 @@ def post_to_facebook_page(message, image_url=None):
         }
     try:
         response = requests.post(url, data=data)
-        print('Facebook post response:', response.json())
+        print('[Facebook] post response:', response.json())
     except Exception as e:
-        print('Error posting to Facebook:', e)
+        print('[Facebook] Error posting:', e)
 
 @receiver(post_save, sender=Product)
 def announce_new_shoe(sender, instance, created, **kwargs):
@@ -74,7 +76,8 @@ def announce_new_shoe(sender, instance, created, **kwargs):
         first_image = instance.images.first()
         if first_image and first_image.image:
             image_url = first_image.image.url
-        message = f"A new shoe is now available! {instance.brand} {instance.name}! Check it out on: https://sidestep.studio/product/{instance.id}/. For inquiries, DM us on Facebook or Instagram!"
+        print(f"[Signal] Product image_url: {image_url}")
+        message = f"A new shoe is now available! {instance.brand} {instance.name}! Check it out on: https://www.sidestep.studio/product/{instance.id}/. For inquiries, DM us on Facebook or Instagram!"
         post_to_facebook_page(message, image_url)
         if image_url:
             post_to_instagram(message, image_url)
