@@ -240,7 +240,39 @@ def post_to_instagram(message, image_url=None):
         print(traceback.format_exc())
 
 
-## Disabled Product post_save signal to prevent double posting. Only ProductImage will trigger social posts.
+@receiver(post_save, sender=Product)
+def announce_new_shoe(sender, instance, created, **kwargs):
+    # Only post if an image exists
+    first_image = instance.images.first()
+    image_url = None
+    if first_image and getattr(first_image, 'image', None):
+        try:
+            image_url = first_image.image.url
+        except Exception:
+            image_url = None
+    if not image_url:
+        print('[Product signal] No image available — skipped post.')
+        return
+
+    # Build sizes/stock/price string
+    size_lines = []
+    for size_obj in instance.sizes.all():
+        price = size_obj.price if size_obj.price != 0 else instance.base_price
+        size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{price}"
+        size_lines.append(size_str)
+    sizes_info = "\n".join(size_lines)
+
+    message = (
+        f"🚨 New Photos Just In! 🚨\n"
+        f"Check out the {instance.brand} {instance.name}—now with more angles!\n\n"
+        f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+        f"See all the details: https://www.sidestep.studio/product/{instance.id}/\n"
+        f"Got questions or want to reserve? Slide into our DMs! #sidestep #sneakerupdate"
+    )
+
+    print(f"[Product signal] Posting image for product {instance.id}: {image_url}")
+    post_to_facebook_page(message, image_url)
+    post_to_instagram(message, image_url)
 def announce_product_image(sender, instance, created, **kwargs):
     """When a ProductImage is saved (especially primary), post the image to FB and IG.
 
