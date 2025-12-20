@@ -279,7 +279,7 @@ def announce_product_image(sender, instance, created, **kwargs):
                 message = (
                     f"🚨 New Photos Just In! 🚨\n"
                     f"Check out the {product.brand} {product.name}—now with more angles!\n\n"
-                    f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+                    f"Sizes & Stock:\n{sizes_info}\n\n"
                     f"See all the details: https://www.sidestep.studio/product/{product.id}/\n"
                     f"Got questions or want to reserve? Slide into our DMs! #sidestep #sneakerupdate"
                 )
