@@ -13,6 +13,7 @@ import requests
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Product
+from .models import ProductImage
 
 
 def _verify_image_url(image_url, timeout=10):
@@ -185,3 +186,35 @@ def announce_new_shoe(sender, instance, created, **kwargs):
             post_to_instagram(message, image_url)
         else:
             print('[Signal] No image available — skipped Instagram post. Consider posting when product image is saved (use ProductImage post_save handler for reliable behavior).')
+
+
+@receiver(post_save, sender=ProductImage)
+def announce_product_image(sender, instance, created, **kwargs):
+    """When a ProductImage is saved (especially primary), post the image to FB and IG.
+
+    This handles the case where the Product was created before the image was available.
+    """
+    try:
+        product = instance.product
+        # Only act when the image file exists on the instance
+        if not getattr(instance, 'image', None):
+            return
+        try:
+            image_url = instance.image.url
+        except Exception:
+            image_url = None
+        if not image_url:
+            return
+
+        # Build a message similar to the product announcement
+        message = f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/. For inquiries, DM us on Facebook or Instagram!"
+
+        print(f"[ProductImage signal] Posting image for product {product.id}: {image_url}")
+        # Post photo to Facebook (this will create a new post containing the image)
+        post_to_facebook_page(message, image_url)
+
+        # Post to Instagram
+        post_to_instagram(message, image_url)
+    except Exception as e:
+        print('[ProductImage signal] Error handling product image post:', e)
+        print(traceback.format_exc())
