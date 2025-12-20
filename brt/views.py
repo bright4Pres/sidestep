@@ -160,3 +160,6 @@ def track_order(request):
         return render(request, 'track_order.html', {'order': order})
     except Order.DoesNotExist:
         return render(request, 'track_order.html', {'error': 'Order not found'})
+
+def privacy_policy(request):
+    return render(request, 'privacy.html')
