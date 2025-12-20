@@ -2,23 +2,22 @@ def get_appsecret_proof(access_token, app_secret):
     """Generate appsecret_proof for Facebook API requests."""
     return hmac.new(app_secret.encode('utf-8'), access_token.encode('utf-8'), hashlib.sha256).hexdigest()
 
+
 import os
+import traceback
+import time
+import requests
+import hmac
+import hashlib
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import Product, ProductImage
+
 """Signals: auto-post new products to Facebook and Instagram with debug logging.
 
 This file verifies image URLs and logs full API responses to help debug failures.
 """
-
-import traceback
-import time
-from django.conf import settings
-import requests
-import hmac
-import hashlib
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from .models import Product
-from .models import ProductImage
 
 
 def _verify_image_url(image_url, timeout=10):
