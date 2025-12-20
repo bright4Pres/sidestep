@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block title %}Order Confirmation - Sidestep{% endblock %}
+
+{% block content %}
+<div class="confirmation-container">
+    <div class="container">
+        <div class="confirmation-box">
+            <h1>✓ Order Placed Successfully!</h1>
+            
+            <div class="order-info">
+                <p><strong>Order ID:</strong> {{ order.order_id }}</p>
+                <p><strong>Date:</strong> {{ order.created_at|date:"F d, Y H:i" }}</p>
+            </div>
+            
+            <div class="payment-instructions">
+                <h2>Next Steps</h2>
+                <p>Thank you for your order! We've received it and will process it shortly.</p>
+                
+                {% if order.payment_method == 'GCash' %}
+                    <div class="instruction-box">
+                        <h3>GCash Payment Instructions:</h3>
+                        <p>Send payment to: <strong>09XX XXX XXXX</strong></p>
+                        <p>Amount: <strong>₱{{ order.total_amount }}</strong></p>
+                        <p>Reference: <strong>{{ order.order_id }}</strong></p>
+                    </div>
+                {% elif order.payment_method == 'PayMaya' %}
+                    <div class="instruction-box">
+                        <h3>PayMaya Payment Instructions:</h3>
+                        <p>Send payment to: <strong>09XX XXX XXXX</strong></p>
+                        <p>Amount: <strong>₱{{ order.total_amount }}</strong></p>
+                        <p>Reference: <strong>{{ order.order_id }}</strong></p>
+                    </div>
+                {% elif order.payment_method == 'COD' %}
+                    <div class="instruction-box">
+                        <h3>Cash on Delivery</h3>
+                        <p>You'll pay upon delivery. Our rider will contact you soon!</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="order-summary">
+                <h3>Order Details</h3>
+                <table>
+                    <tr>
+                        <th>Product</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                    </tr>
+                    {% for item in order.items.all %}
+                    <tr>
+                        <td>{{ item.product_name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>₱{{ item.price }}</td>
+                        <td>₱{{ item.subtotal }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="3">Total:</td>
+                        <td><strong>₱{{ order.total_amount }}</strong></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p class="confirmation-note">A confirmation email has been sent to <strong>{{ order.customer_email }}</strong></p>
+            
+            <div class="actions">
+                <a href="/" class="btn btn-primary">Continue Shopping</a>
+                <a href="/track-order/?id={{ order.order_id }}" class="btn btn-secondary">Track Order</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.confirmation-container {
+    padding: 40px 0;
+    background-color: #f9f9f9;
+    min-height: 80vh;
+}
+
+.confirmation-box {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.confirmation-box h1 {
+    color: #28a745;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.order-info {
+    background: #f0f0f0;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.instruction-box {
+    background: #e7f3ff;
+    padding: 15px;
+    border-left: 4px solid #667eea;
+    margin: 15px 0;
+    border-radius: 5px;
+}
+
+.order-summary table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.order-summary th,
+.order-summary td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.order-summary th {
+    background-color: #f9f9f9;
+    font-weight: 600;
+}
+
+.total-row {
+    font-weight: bold;
+    background-color: #f0f0f0;
+}
+
+.confirmation-note {
+    text-align: center;
+    color: #666;
+    margin: 20px 0;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.btn {
+    padding: 12px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #667eea;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #ddd;
+    color: #333;
+}
+</style>
+{% endblock %}

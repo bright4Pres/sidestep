@@ -1,109 +1,85 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-
-  <head>
+<head>
     <meta charset="UTF-8">
-    <title>Sneaker Shop - Landing Page</title>
+    <title>BRT Sidestep</title>
     <link rel="stylesheet" href="{% static 'css/landingpage.css' %}">
-
-  </head>
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css">
+</head>
+<body>
+  <!-- Hero Section -->
+  <section class="hero">
+    <a class="company" href="/">BRT</a>
+    <div class="container">
+        <a href="/shop/" class="item">
+            <div class="label">Shop All</div>
+        </a>
+        <a href="/shop/?category=new" class="item">
+            <div class="label">New Arrivals</div>
+        </a>
+        <a href="/shop/?category=basketball" class="item">
+            <div class="label">Basketball</div>
+        </a>
+        <a href="/shop/?category=running" class="item">
+            <div class="label">Running</div>
+        </a>
+        <a href="/shop/?category=trending" class="item">
+            <div class="label">Trending</div>
+        </a>
+        <a href="/wishlist/" class="item">
+            <div class="label">Wishlist</div>
+        </a>
+        <a href="/shop/?category=sale" class="item">
+            <div class="label">Sale</div>
+        </a>
+    </div>
+    <a class="company" href="/">Sidestep</a>
+    <div id="jin"><a href="/shop/">Browse Items</a></div>
+    <div id="jin2"><a href="/accounts/login/">Login or Sign Up</a></div>
+    <div id="jin3"><a href="https://facebook.com" target="_blank">Facebook</a></div>
+    <div id="jin4"><a href="https://instagram.com" target="_blank">Instagram</a></div>
     
-  <body>
-  <header class="hero">
-      <div class="container spacing">
-        <h1 class="primary-title">It's okay to be a little obsessed with shoes</h1>
-        <p>
-          Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa quam
-          perspiciatis facilis beatae laudantium quidem enim sit sequi!
-        </p>
-        <a href="#" class="btn">See what we have</a>
-      </div>
-    </header>
-    <main>
-      <section class="featured">
-        <div class="container">
-          <h2 class="section-title">Featured sneakers</h2>
-          <div class="split">
-            <a href="#" class="featured__item">
-              <img
-                src="https://github.com/kevin-powell/shoes/blob/master/img/shoe-4.png?raw=true"
-                alt=""
-                class="featured__img"
-              />
-              <p class="featured__details">
-                <span class="price">$99</span>shoe name
-              </p>
-            </a>
-            <a href="#" class="featured__item">
-              <img
-                src="https://github.com/kevin-powell/shoes/blob/master/img/shoe-5.png?raw=true"
-                alt=""
-                class="featured__img"
-              />
-              <p class="featured__details">
-                <span class="price">$99</span>shoe name
-              </p>
-            </a>
-            <a href="#" class="featured__item">
-              <img
-                src="https://github.com/kevin-powell/shoes/blob/master/img/shoe-6.png?raw=true"
-                alt=""
-                class="featured__img"
-              />
-              <p class="featured__details">
-                <span class="price">$99</span>shoe name
-              </p>
-            </a>
-          </div>
-        </div>
-      </section>
-      <section class="our-products">
-        <div class="container">
-          <h2 class="section-title">Our sneakers</h2>
-          <article class="product shoe-red spacing">
-            <img
-              src="https://github.com/kevin-powell/shoes/blob/master/img/shoe-1.png?raw=true"
-              alt=""
-              class="product__image"
-            />
-            <h3 class="product__title">A really nice shoe</h3>
-            <p class="product__description">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa quam
-              perspiciatis facilis beatae laudantium quidem enim sit sequi!
-            </p>
-            <a href="" class="btn">Buy now</a>
-          </article>
+    <a href="#about" class="scroll_indicator">
+        <span>About Us</span>
+        <i class="fas fa-chevron-down"></i>
+    </a>
+  </section>
 
-          <article class="product shoe-white shoe-left spacing">
-            <img
-              src="https://github.com/kevin-powell/shoes/blob/master/img/shoe-2.png?raw=true"
-              alt=""
-              class="product__image"
-            />
-            <h3 class="product__title">A really nice shoe</h3>
-            <p class="product__description">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa quam
-              perspiciatis facilis beatae laudantium quidem enim sit sequi!
-            </p>
-            <a href="" class="btn">Buy now</a>
-          </article>
-
-          <article class="product shoe-blue spacing">
-            <img
-              src="https://github.com/kevin-powell/shoes/blob/master/img/shoe-3.png?raw=true"
-              alt=""
-              class="product__image"
-            />
-            <h3 class="product__title">A really nice shoe</h3>
-            <p class="product__description">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa quam
-              perspiciatis facilis beatae laudantium quidem enim sit sequi!
-            </p>
-            <a href="" class="btn">Buy now</a>
-          </article>
+  <!-- About Section -->
+  <section class="about" id="about">
+    <div class="about_content">
+        <h2>About BRT Sidestep</h2>
+        <div class="about_grid">
+            <div class="about_text">
+                <p class="intro">Your trusted sneaker destination in <strong>Dipolog City</strong>, Zamboanga del Norte.</p>
+                <p>BRT Sidestep is a locally-owned sneaker store bringing the freshest kicks to the Mindanao region. We're passionate about sneaker culture and committed to providing authentic, quality footwear to our community.</p>
+                <p>Whether you're looking for the latest basketball shoes, classic running silhouettes, or trending streetwear styles, we've got you covered. Every pair we sell is guaranteed authentic and carefully curated for sneaker enthusiasts like you.</p>
+                
+                <div class="location_info">
+                    <h3><i class="fas fa-map-marker-alt"></i> Find Us</h3>
+                    <p>Dipolog City, Zamboanga del Norte<br>Philippines 7100</p>
+                </div>
+                
+                <div class="contact_info">
+                    <h3><i class="fas fa-envelope"></i> Get in Touch</h3>
+                    <p>Follow us on social media for updates on new arrivals and exclusive drops!</p>
+                    <div class="social_icons">
+                        <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook-f"></i></a>
+                        <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="about_image">
+                <div class="image_placeholder">
+                    <i class="fas fa-shoe-prints"></i>
+                    <span>BRT Sidestep</span>
+                </div>
+            </div>
         </div>
-      </section>
-    </main>
-  </body>
+        <a href="/shop/" class="cta_button">Start Shopping</a>
+    </div>
+  </section>
+</body>
 </html>

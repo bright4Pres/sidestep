@@ -1,0 +1,127 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The sneaker shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://public.codepenassets.com/css/normalize-5.0.0.min.css">
+    <link rel="stylesheet" href="{% static 'css/shop.css' %}">
+    <script src="https://public.codepenassets.com/js/prefixfree-1.0.7.min.js"></script>
+</head>
+<body>
+    <div class="shop_layout">
+        <!-- Filter Sidebar -->
+        <aside class="filter_sidebar">
+            <form action="/shop/" method="GET" id="filterForm">
+                <div class="filter_header">
+                    <h2>Filters</h2>
+                    <a href="/shop/" class="clear_filters">Clear All</a>
+                </div>
+                
+                <!-- Search -->
+                <div class="filter_section">
+                    <h3>Search</h3>
+                    <div class="search_box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" name="q" placeholder="Search shoes..." value="{{ search_query }}">
+                    </div>
+                </div>
+                
+                <!-- Price Range -->
+                <div class="filter_section">
+                    <h3>Price Range</h3>
+                    <div class="price_inputs">
+                        <input type="number" name="min_price" placeholder="Min ₱" value="{{ min_price }}" min="0">
+                        <span>-</span>
+                        <input type="number" name="max_price" placeholder="Max ₱" value="{{ max_price }}" min="0">
+                    </div>
+                    {% if price_range.min_price and price_range.max_price %}
+                    <p class="price_hint">₱{{ price_range.min_price|floatformat:0 }} - ₱{{ price_range.max_price|floatformat:0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Brands -->
+                <div class="filter_section">
+                    <h3>Brands</h3>
+                    <div class="checkbox_group">
+                        {% for brand in all_brands %}
+                        <label class="checkbox_label">
+                            <input type="checkbox" name="brand" value="{{ brand }}" {% if brand in selected_brands %}checked{% endif %}>
+                            <span>{{ brand }}</span>
+                        </label>
+                        {% empty %}
+                        <p class="no_options">No brands available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Sizes -->
+                <div class="filter_section">
+                    <h3>Shoe Size (US)</h3>
+                    <div class="size_grid">
+                        {% for size_val, size_display in all_sizes %}
+                        <label class="size_checkbox {% if size_val in selected_sizes %}selected{% endif %}">
+                            <input type="checkbox" name="size" value="{{ size_val }}" {% if size_val in selected_sizes %}checked{% endif %}>
+                            <span>{{ size_display }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Sort -->
+                <div class="filter_section">
+                    <h3>Sort By</h3>
+                    <select name="sort" class="sort_select">
+                        <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest</option>
+                        <option value="price_low" {% if current_sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                        <option value="price_high" {% if current_sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                        <option value="name" {% if current_sort == 'name' %}selected{% endif %}>Name A-Z</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="apply_filters">Apply Filters</button>
+            </form>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="shop_content">
+            <div class="shop_header">
+                <div class="logo"><a href="/">BRT Sidestep</a></div>
+                <nav class="header_links">
+                    <a href="/shop/">Browse</a>
+                    <a href="/accounts/login/">Login</a>
+                    <a href="https://www.facebook.com/share/17sZiS5RWA/?mibextid=wwXIfr" target="_blank"><i class="fab fa-facebook"></i></a>
+                    <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
+                </nav>
+                <p class="results_count">{{ products|length }} product{{ products|length|pluralize }} found</p>
+            </div>
+            
+            <div class="products_grid">
+                {% for product in products %}
+                <section class="sneaker">
+                    <h3 class="title">{{ product.brand }}</h3>
+                    <p class="name">{{ product.name }}</p>
+                    <p class="price">₱{{ product.price }}</p>
+                    <div class="slides">
+                        {% for img in product.images.all %}
+                        <img src="{{ img.image.url }}" class="sneaker_img product_img sneaker_img{{ forloop.counter }}">
+                        {% empty %}
+                        <img src="{% static 'images/placeholder.png' %}" class="sneaker_img product_img">
+                        {% endfor %}
+                    </div>
+                    <a href="/product/{{ product.id }}/" class="cta_button">Shop now</a>
+                </section>
+                {% empty %}
+                <section class="no_products">
+                    <h3>No products found</h3>
+                    <p>Try adjusting your filters or check back soon!</p>
+                </section>
+                {% endfor %}
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'js/shop.js' %}"></script>
+</body>
+</html>
