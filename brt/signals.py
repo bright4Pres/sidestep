@@ -1,3 +1,6 @@
+def get_appsecret_proof(access_token, app_secret):
+    """Generate appsecret_proof for Facebook API requests."""
+    return hmac.new(app_secret.encode('utf-8'), access_token.encode('utf-8'), hashlib.sha256).hexdigest()
 
 import os
 from django.conf import settings
@@ -10,6 +13,8 @@ import traceback
 import time
 from django.conf import settings
 import requests
+import hmac
+import hashlib
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Product
@@ -51,9 +56,12 @@ def _verify_image_url(image_url, timeout=10):
 def post_to_facebook_page(message, image_url=None):
     page_id = getattr(settings, 'FACEBOOK_PAGE_ID', None)
     access_token = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
-    if not page_id or not access_token:
-        print('FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN not set')
+    app_secret = getattr(settings, 'FACEBOOK_APP_SECRET', None)
+    if not page_id or not access_token or not app_secret:
+        print('FACEBOOK_PAGE_ID, FACEBOOK_PAGE_ACCESS_TOKEN, or FACEBOOK_APP_SECRET not set')
         return
+
+    appsecret_proof = get_appsecret_proof(access_token, app_secret)
 
     if image_url:
         print(f"[Facebook] Using image_url: {image_url}")
@@ -66,13 +74,15 @@ def post_to_facebook_page(message, image_url=None):
         data = {
             'caption': message,
             'url': image_url,
-            'access_token': access_token
+            'access_token': access_token,
+            'appsecret_proof': appsecret_proof
         }
     else:
         url = f'https://graph.facebook.com/{page_id}/feed'
         data = {
             'message': message,
-            'access_token': access_token
+            'access_token': access_token,
+            'appsecret_proof': appsecret_proof
         }
 
     try:
@@ -96,9 +106,12 @@ def post_to_facebook_page(message, image_url=None):
 def post_to_instagram(message, image_url=None):
     ig_account_id = getattr(settings, 'INSTAGRAM_BUSINESS_ACCOUNT_ID', None)
     access_token = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
-    if not ig_account_id or not access_token:
-        print('INSTAGRAM_BUSINESS_ACCOUNT_ID or FACEBOOK_PAGE_ACCESS_TOKEN not set')
+    app_secret = getattr(settings, 'FACEBOOK_APP_SECRET', None)
+    if not ig_account_id or not access_token or not app_secret:
+        print('INSTAGRAM_BUSINESS_ACCOUNT_ID, FACEBOOK_PAGE_ACCESS_TOKEN, or FACEBOOK_APP_SECRET not set')
         return
+
+    appsecret_proof = get_appsecret_proof(access_token, app_secret)
     if not image_url:
         print('Image URL required for Instagram post')
         return
@@ -114,7 +127,8 @@ def post_to_instagram(message, image_url=None):
     media_data = {
         'image_url': image_url,
         'caption': message,
-        'access_token': access_token
+        'access_token': access_token,
+        'appsecret_proof': appsecret_proof
     }
 
     try:
@@ -137,7 +151,8 @@ def post_to_instagram(message, image_url=None):
         publish_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media_publish'
         publish_data = {
             'creation_id': creation_id,
-            'access_token': access_token
+            'access_token': access_token,
+            'appsecret_proof': appsecret_proof
         }
         publish_resp = requests.post(publish_url, data=publish_data, timeout=20)
         print('[Instagram] publish HTTP status:', publish_resp.status_code)
