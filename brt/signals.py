@@ -240,52 +240,7 @@ def post_to_instagram(message, image_url=None):
         print(traceback.format_exc())
 
 
-@receiver(post_save, sender=Product)
-def announce_new_shoe(sender, instance, created, **kwargs):
-    if created:
-        # Try to obtain the image URL — sometimes images are saved shortly after the product
-        image_url = None
-        attempts = 8
-        for i in range(attempts):
-            first_image = instance.images.first()
-            if first_image and getattr(first_image, 'image', None):
-                try:
-                    url = first_image.image.url
-                except Exception:
-                    url = None
-                if url:
-                    image_url = url
-                    break
-            time.sleep(1)
-
-        print(f"[Signal] Product image_url after polling: {image_url}")
-
-        # Build sizes/stock/price string
-        size_lines = []
-        for size_obj in instance.sizes.all():
-            size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
-            size_lines.append(size_str)
-        sizes_info = "\n".join(size_lines)
-
-        message = (
-            f"🔥 Fresh Drop Alert! 🔥\n"
-            f"Step up your game with the new {instance.brand} {instance.name}!\n\n"
-            f"👟 Sizes & Stock:\n{sizes_info}\n\n"
-            f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{instance.id}/\n"
-            f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
-        )
-
-        # Post to Facebook (with image if available)
-        post_to_facebook_page(message, image_url)
-
-        # Post to Instagram only if we have an image (Instagram requires an image)
-        if image_url:
-            post_to_instagram(message, image_url)
-        else:
-            print('[Signal] No image available — skipped Instagram post. Consider posting when product image is saved (use ProductImage post_save handler for reliable behavior).')
-
-
-        ## Disabled Product post_save signal to prevent double posting. Only ProductImage will trigger social posts.
+## Disabled Product post_save signal to prevent double posting. Only ProductImage will trigger social posts.
 def announce_product_image(sender, instance, created, **kwargs):
     """When a ProductImage is saved (especially primary), post the image to FB and IG.
 
