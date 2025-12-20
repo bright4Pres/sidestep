@@ -191,7 +191,7 @@ def announce_new_shoe(sender, instance, created, **kwargs):
             time.sleep(1)
 
         print(f"[Signal] Product image_url after polling: {image_url}")
-        message = f"A new shoe is now available! {instance.brand} {instance.name}! Check it out on: https://sidestep.studio/product/{instance.id}/. For inquiries, DM us on Facebook or Instagram!"
+        message = f"A new shoe is now available! {instance.brand} {instance.name}! Check it out on: https://www.sidestep.studio/product/{instance.id}/. For inquiries, DM us on Facebook or Instagram!"
 
         # Post to Facebook (with image if available)
         post_to_facebook_page(message, image_url)
