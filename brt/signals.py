@@ -254,31 +254,54 @@ def announce_product_image(sender, instance, created, **kwargs):
             image_url = instance.image.url
         except Exception:
             image_url = None
-        if not image_url:
-            return
+        from django.db import transaction
+        def do_post():
+            try:
+                product = instance.product
+                # Only act when the image file exists on the instance
+                if not getattr(instance, 'image', None):
+                    return
+                try:
+                    image_url = instance.image.url
+                except Exception:
+                    image_url = None
+                if not image_url:
+                    return
 
+                # Avoid double posting: if Product was just created (within 10 seconds), skip this post
+                import datetime
+                now = datetime.datetime.now(datetime.timezone.utc)
+                created_at = getattr(product, 'created_at', None)
+                if created_at and (now - created_at).total_seconds() < 10:
+                    print(f"[ProductImage signal] Skipping post for product {product.id} to avoid double posting (Product just created)")
+                    return
 
-        # Build sizes/stock/price string
-        size_lines = []
-        for size_obj in product.sizes.all():
-            size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
-            size_lines.append(size_str)
-        sizes_info = "\n".join(size_lines)
+                # Build sizes/stock/price string
+                size_lines = []
+                for size_obj in product.sizes.all():
+                    price = size_obj.price if size_obj.price != 0 else product.base_price
+                    size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{price}"
+                    size_lines.append(size_str)
+                sizes_info = "\n".join(size_lines)
 
-        message = (
-            f"🚨 New Photos Just In! 🚨\n"
-            f"Check out the {product.brand} {product.name}—now with more angles!\n\n"
-            f"👟 Sizes & Stock:\n{sizes_info}\n\n"
-            f"See all the details: https://www.sidestep.studio/product/{product.id}/\n"
-            f"Got questions or want to reserve? Slide into our DMs! #sidestep #sneakerupdate"
-        )
+                message = (
+                    f"🚨 New Photos Just In! 🚨\n"
+                    f"Check out the {product.brand} {product.name}—now with more angles!\n\n"
+                    f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+                    f"See all the details: https://www.sidestep.studio/product/{product.id}/\n"
+                    f"Got questions or want to reserve? Slide into our DMs! #sidestep #sneakerupdate"
+                )
 
-        print(f"[ProductImage signal] Posting image for product {product.id}: {image_url}")
-        # Post photo to Facebook (this will create a new post containing the image)
-        post_to_facebook_page(message, image_url)
+                print(f"[ProductImage signal] Posting image for product {product.id}: {image_url}")
+                # Post photo to Facebook (this will create a new post containing the image)
+                post_to_facebook_page(message, image_url)
 
-        # Post to Instagram
-        post_to_instagram(message, image_url)
+                # Post to Instagram
+                post_to_instagram(message, image_url)
+            except Exception as e:
+                print('[ProductImage signal] Error handling product image post:', e)
+                print(traceback.format_exc())
+        transaction.on_commit(do_post)
     except Exception as e:
-        print('[ProductImage signal] Error handling product image post:', e)
+        print('[ProductImage signal] Error in announce_product_image:', e)
         print(traceback.format_exc())
