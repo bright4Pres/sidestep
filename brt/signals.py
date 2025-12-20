@@ -7,6 +7,7 @@ This file verifies image URLs and logs full API responses to help debug failures
 """
 
 import traceback
+import time
 from django.conf import settings
 import requests
 from django.db.models.signals import post_save
@@ -158,12 +159,29 @@ def post_to_instagram(message, image_url=None):
 @receiver(post_save, sender=Product)
 def announce_new_shoe(sender, instance, created, **kwargs):
     if created:
+        # Try to obtain the image URL — sometimes images are saved shortly after the product
         image_url = None
-        first_image = instance.images.first()
-        if first_image and getattr(first_image, 'image', None):
-            image_url = first_image.image.url
-        print(f"[Signal] Product image_url: {image_url}")
+        attempts = 8
+        for i in range(attempts):
+            first_image = instance.images.first()
+            if first_image and getattr(first_image, 'image', None):
+                try:
+                    url = first_image.image.url
+                except Exception:
+                    url = None
+                if url:
+                    image_url = url
+                    break
+            time.sleep(1)
+
+        print(f"[Signal] Product image_url after polling: {image_url}")
         message = f"A new shoe is now available! {instance.brand} {instance.name}! Check it out on: https://sidestep.studio/product/{instance.id}/. For inquiries, DM us on Facebook or Instagram!"
+
+        # Post to Facebook (with image if available)
         post_to_facebook_page(message, image_url)
+
+        # Post to Instagram only if we have an image (Instagram requires an image)
         if image_url:
             post_to_instagram(message, image_url)
+        else:
+            print('[Signal] No image available — skipped Instagram post. Consider posting when product image is saved (use ProductImage post_save handler for reliable behavior).')
