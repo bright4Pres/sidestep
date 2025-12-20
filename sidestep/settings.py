@@ -150,5 +150,12 @@ if not DEBUG:
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+
+# Facebook/Instagram Access Tokens and IDs (for auto-posting)
+FACEBOOK_PAGE_ACCESS_TOKEN = os.environ.get('FACEBOOK_PAGE_ACCESS_TOKEN')
+FACEBOOK_PAGE_ID = os.environ.get('FACEBOOK_PAGE_ID')
+INSTAGRAM_BUSINESS_ACCOUNT_ID = os.environ.get('INSTAGRAM_BUSINESS_ACCOUNT_ID')
+
 # CSRF trusted origins for Render
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:8080').split(',')
