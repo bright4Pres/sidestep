@@ -207,7 +207,7 @@ def announce_product_image(sender, instance, created, **kwargs):
             return
 
         # Build a message similar to the product announcement
-        message = f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://sidestep.studio/product/{product.id}/. For inquiries, DM us on Facebook or Instagram!"
+        message = f"A new shoe is now available! {product.brand} {product.name}! Check it out on: https://www.sidestep.studio/product/{product.id}/. For inquiries, DM us on Facebook or Instagram!"
 
         print(f"[ProductImage signal] Posting image for product {product.id}: {image_url}")
         # Post photo to Facebook (this will create a new post containing the image)
