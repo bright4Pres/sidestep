@@ -5,6 +5,7 @@ from django.urls import reverse, path
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.contrib import messages
+from django.http import HttpResponseRedirect
 from .models import Product, ProductImage, ProductSize, Order, OrderItem
 
 
