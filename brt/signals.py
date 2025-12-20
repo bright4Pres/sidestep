@@ -285,7 +285,7 @@ def announce_new_shoe(sender, instance, created, **kwargs):
             print('[Signal] No image available — skipped Instagram post. Consider posting when product image is saved (use ProductImage post_save handler for reliable behavior).')
 
 
-@receiver(post_save, sender=ProductImage)
+        ## Disabled Product post_save signal to prevent double posting. Only ProductImage will trigger social posts.
 def announce_product_image(sender, instance, created, **kwargs):
     """When a ProductImage is saved (especially primary), post the image to FB and IG.
 
@@ -307,7 +307,8 @@ def announce_product_image(sender, instance, created, **kwargs):
         # Build sizes/stock/price string
         size_lines = []
         for size_obj in product.sizes.all():
-            size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+            price = size_obj.price if size_obj.price != 0 else product.base_price
+            size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{price}"
             size_lines.append(size_str)
         sizes_info = "\n".join(size_lines)
 

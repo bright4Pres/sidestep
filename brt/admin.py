@@ -118,7 +118,8 @@ class ProductAdmin(admin.ModelAdmin):
                     # Build sizes/stock/price string
                     size_lines = []
                     for size_obj in product.sizes.all():
-                        size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+                        price = size_obj.price if size_obj.price != 0 else product.base_price
+                        size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{price}"
                         size_lines.append(size_str)
                     print(f"[ADMIN publish_selected] Sizes for product {product.id}: {size_lines}")
                     sizes_info = "\n".join(size_lines)
@@ -171,7 +172,8 @@ class ProductAdmin(admin.ModelAdmin):
             # Build sizes/stock/price string
             size_lines = []
             for size_obj in product.sizes.all():
-                size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+                price = size_obj.price if size_obj.price != 0 else product.base_price
+                size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{price}"
                 size_lines.append(size_str)
             print(f"[ADMIN publish_product_view] Sizes for product {product.id}: {size_lines}")
             sizes_info = "\n".join(size_lines)
