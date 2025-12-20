@@ -115,11 +115,57 @@ def post_to_instagram(message, image_url=None):
         print('Image URL required for Instagram post')
         return
 
+
     print(f"[Instagram] Using image_url: {image_url}")
     ok, info = _verify_image_url(image_url)
     print('[Instagram] image verification:', info)
     if not ok:
         print('[Instagram] Image URL failed verification; aborting Instagram post')
+        return
+
+    # Validate aspect ratio for Instagram (must be between 0.8 and 1.91)
+    try:
+        from PIL import Image
+        from io import BytesIO
+        img_resp = requests.get(image_url, timeout=10)
+        img_resp.raise_for_status()
+        img = Image.open(BytesIO(img_resp.content))
+        width, height = img.size
+        aspect_ratio = width / height if height else 0
+        print(f"[Instagram] Image size: {width}x{height}, aspect ratio: {aspect_ratio:.2f}")
+        # If aspect ratio is invalid, auto-resize and upload to Cloudinary
+        if aspect_ratio < 0.8 or aspect_ratio > 1.91:
+            print(f"[Instagram] Image aspect ratio {aspect_ratio:.2f} is invalid. Auto-resizing...")
+            # Calculate new size to fit within 0.8–1.91
+            min_ratio, max_ratio = 0.8, 1.91
+            new_width, new_height = width, height
+            if aspect_ratio < min_ratio:
+                # Too tall, pad/crop height
+                new_height = int(width / min_ratio)
+            elif aspect_ratio > max_ratio:
+                # Too wide, pad/crop width
+                new_width = int(height * max_ratio)
+            # Center crop
+            left = max((width - new_width) // 2, 0)
+            top = max((height - new_height) // 2, 0)
+            right = left + new_width
+            bottom = top + new_height
+            img = img.crop((left, top, right, bottom))
+            # Save to buffer
+            buf = BytesIO()
+            img.save(buf, format='JPEG')
+            buf.seek(0)
+            # Upload to Cloudinary (requires cloudinary package and config)
+            try:
+                import cloudinary.uploader
+                upload_result = cloudinary.uploader.upload(buf, folder="instagram_resized", resource_type="image")
+                image_url = upload_result['secure_url']
+                print(f"[Instagram] Uploaded resized image to Cloudinary: {image_url}")
+            except Exception as e:
+                print(f"[Instagram] Cloudinary upload failed: {e}. Skipping post.")
+                return
+    except Exception as e:
+        print(f"[Instagram] Could not validate or resize image aspect ratio: {e}. Skipping post.")
         return
 
     media_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
