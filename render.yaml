@@ -1,0 +1,24 @@
+databases:
+  - name: sidestep-db
+    databaseName: sidestep
+    user: sidestep
+    plan: free
+
+services:
+  - type: web
+    name: brt-sidestep
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn sidestep.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sidestep-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.11.6"
