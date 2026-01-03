@@ -398,7 +398,7 @@ def post_instagram_carousel(message, image_urls):
             if not ok:
                 print(f'[Instagram carousel] skipping image (failed verification): {img}')
                 continue
-            # Validate aspect ratio before creating child media
+            # Validate and auto-fix aspect ratio before creating child media
             try:
                 from PIL import Image as PILImage
                 from io import BytesIO
@@ -407,12 +407,40 @@ def post_instagram_carousel(message, image_urls):
                 pil_img = PILImage.open(BytesIO(img_resp.content))
                 width, height = pil_img.size
                 aspect_ratio = width / height if height else 0
+                print(f'[Instagram carousel] Image aspect ratio: {aspect_ratio:.2f} ({width}x{height})')
+                
                 # Instagram carousel requires 0.8 to 1.91 aspect ratio
                 if aspect_ratio < 0.8 or aspect_ratio > 1.91:
-                    print(f'[Instagram carousel] Skipping image (invalid aspect ratio {aspect_ratio:.2f}): {img}')
-                    continue
+                    print(f'[Instagram carousel] Auto-resizing image (aspect ratio {aspect_ratio:.2f}): {img}')
+                    # Calculate new size to fit within 0.8–1.91
+                    min_ratio, max_ratio = 0.8, 1.91
+                    new_width, new_height = width, height
+                    if aspect_ratio < min_ratio:
+                        # Too tall, crop height
+                        new_height = int(width / min_ratio)
+                    elif aspect_ratio > max_ratio:
+                        # Too wide, crop width
+                        new_width = int(height * max_ratio)
+                    # Center crop
+                    left = max((width - new_width) // 2, 0)
+                    top = max((height - new_height) // 2, 0)
+                    right = left + new_width
+                    bottom = top + new_height
+                    pil_img = pil_img.crop((left, top, right, bottom))
+                    # Upload resized to Cloudinary
+                    buf = BytesIO()
+                    pil_img.save(buf, format='JPEG')
+                    buf.seek(0)
+                    try:
+                        import cloudinary.uploader
+                        upload_result = cloudinary.uploader.upload(buf, folder="instagram_carousel_resized", resource_type="image")
+                        img = upload_result['secure_url']
+                        print(f'[Instagram carousel] Uploaded resized image to Cloudinary: {img}')
+                    except Exception as e:
+                        print(f'[Instagram carousel] Cloudinary upload failed: {e}, skipping image')
+                        continue
             except Exception as e:
-                print(f'[Instagram carousel] Could not validate aspect ratio for {img}: {e}')
+                print(f'[Instagram carousel] Could not process image {img}: {e}')
                 continue
             
             media_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
