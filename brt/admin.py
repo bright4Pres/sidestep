@@ -111,10 +111,16 @@ class ProductAdmin(admin.ModelAdmin):
                 product.save(update_fields=['is_published', 'published_at'])
                 # Call posting helpers (if available)
                 try:
-                    from .signals import post_to_facebook_page, post_to_instagram
-                    # Use primary image if available
-                    primary = product.primary_image()
-                    image_url = primary.image.url if primary and getattr(primary, 'image', None) else None
+                    from .signals import post_multiple_to_facebook, post_instagram_carousel
+                    # Collect image URLs (may be relative; signals will handle upload/absolute conversion)
+                    image_urls = []
+                    for img in product.images.all().order_by('order'):
+                        if getattr(img, 'image', None):
+                            try:
+                                image_urls.append(img.image.url)
+                            except Exception:
+                                # skip if url not available
+                                continue
                     # Build sizes/stock/price string
                     size_lines = []
                     for size_obj in product.sizes.all():
@@ -124,13 +130,13 @@ class ProductAdmin(admin.ModelAdmin):
                     message = (
                         f"🔥 Fresh Drop Alert! 🔥\n"
                         f"Step up your game with the new {product.brand} {product.name}!\n\n"
-                        f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+                        f"Sizes & Stock:\n{sizes_info}\n\n"
                         f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{product.id}/\n"
                         f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
                     )
-                    post_to_facebook_page(message, image_url)
-                    if image_url:
-                        post_to_instagram(message, image_url)
+                    if image_urls:
+                        post_multiple_to_facebook(message, image_urls)
+                        post_instagram_carousel(message, image_urls)
                 except Exception:
                     # don't block the admin action on posting errors
                     pass
@@ -164,9 +170,14 @@ class ProductAdmin(admin.ModelAdmin):
         product.save(update_fields=['is_published', 'published_at'])
         # Post to FB/IG
         try:
-            from .signals import post_to_facebook_page, post_to_instagram
-            primary = product.primary_image()
-            image_url = primary.image.url if primary and getattr(primary, 'image', None) else None
+            from .signals import post_multiple_to_facebook, post_instagram_carousel
+            image_urls = []
+            for img in product.images.all().order_by('order'):
+                if getattr(img, 'image', None):
+                    try:
+                        image_urls.append(img.image.url)
+                    except Exception:
+                        continue
             # Build sizes/stock/price string
             size_lines = []
             for size_obj in product.sizes.all():
@@ -176,13 +187,13 @@ class ProductAdmin(admin.ModelAdmin):
             message = (
                 f"🔥 Fresh Drop Alert! 🔥\n"
                 f"Step up your game with the new {product.brand} {product.name}!\n\n"
-                f"👟 Sizes & Stock:\n{sizes_info}\n\n"
+                f"Sizes & Stock:\n{sizes_info}\n\n"
                 f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{product.id}/\n"
                 f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
             )
-            post_to_facebook_page(message, image_url)
-            if image_url:
-                post_to_instagram(message, image_url)
+            if image_urls:
+                post_multiple_to_facebook(message, image_urls)
+                post_instagram_carousel(message, image_urls)
             self.message_user(request, 'Product published and posted to social media')
         except Exception as e:
             self.message_user(request, f'Published but failed to post: {e}', level=messages.WARNING)

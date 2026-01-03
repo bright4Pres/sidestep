@@ -4,6 +4,7 @@ def get_appsecret_proof(access_token, app_secret):
 
 
 import os
+import json
 import traceback
 import time
 import threading
@@ -308,6 +309,155 @@ def post_to_instagram(message, image_url=None):
         print('[Instagram] Error posting:', e)
         print(traceback.format_exc())
 
+
+def post_multiple_to_facebook(message, image_urls):
+    """Post multiple images to Facebook as a single feed post using unpublished photos."""
+    page_id = getattr(settings, 'FACEBOOK_PAGE_ID', None)
+    access_token = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
+    app_secret = getattr(settings, 'FACEBOOK_APP_SECRET', None)
+    if not page_id or not access_token or not app_secret:
+        print('FACEBOOK_PAGE_ID, FACEBOOK_PAGE_ACCESS_TOKEN, or FACEBOOK_APP_SECRET not set')
+        return
+
+    appsecret_proof = get_appsecret_proof(access_token, app_secret)
+    uploaded_ids = []
+    for img in image_urls:
+        try:
+            ok, info = _verify_image_url(img)
+            print('[Facebook multi] image verification:', info)
+            if not ok:
+                print(f'[Facebook multi] skipping image (failed verification): {img}')
+                continue
+            url = f'https://graph.facebook.com/{page_id}/photos'
+            data = {
+                'url': img,
+                'published': 'false',
+                'access_token': access_token,
+                'appsecret_proof': appsecret_proof,
+            }
+            resp = requests.post(url, data=data, timeout=10)
+            try:
+                rj = resp.json()
+            except Exception:
+                print('[Facebook multi] invalid json response:', resp.text)
+                continue
+            if 'id' in rj:
+                uploaded_ids.append(rj['id'])
+            else:
+                print('[Facebook multi] upload photo failed:', rj)
+        except Exception as e:
+            print('[Facebook multi] error uploading photo:', e)
+            print(traceback.format_exc())
+
+    if not uploaded_ids:
+        print('[Facebook multi] no photos uploaded, aborting multi-photo post')
+        return
+
+    try:
+        feed_url = f'https://graph.facebook.com/{page_id}/feed'
+        attached = [{'media_fbid': fid} for fid in uploaded_ids]
+        data = {
+            'message': message,
+            'attached_media': json.dumps(attached),
+            'access_token': access_token,
+            'appsecret_proof': appsecret_proof,
+        }
+        resp = requests.post(feed_url, data=data, timeout=10)
+        try:
+            rj = resp.json()
+        except Exception:
+            print('[Facebook multi] feed response invalid json:', resp.text)
+            return
+        print('[Facebook multi] feed response:', rj)
+    except Exception as e:
+        print('[Facebook multi] error creating feed post:', e)
+        print(traceback.format_exc())
+
+
+def post_instagram_carousel(message, image_urls):
+    """Create an Instagram carousel post from a list of image URLs.
+
+    Steps: create child media objects with is_carousel_item=true, then create
+    parent container with children and publish.
+    """
+    ig_account_id = getattr(settings, 'INSTAGRAM_BUSINESS_ACCOUNT_ID', None)
+    access_token = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
+    app_secret = getattr(settings, 'FACEBOOK_APP_SECRET', None)
+    if not ig_account_id or not access_token or not app_secret:
+        print('INSTAGRAM_BUSINESS_ACCOUNT_ID, FACEBOOK_PAGE_ACCESS_TOKEN, or FACEBOOK_APP_SECRET not set')
+        return
+
+    appsecret_proof = get_appsecret_proof(access_token, app_secret)
+    child_ids = []
+    for img in image_urls[:10]:
+        try:
+            ok, info = _verify_image_url(img)
+            print('[Instagram carousel] image verification:', info)
+            if not ok:
+                print(f'[Instagram carousel] skipping image (failed verification): {img}')
+                continue
+            media_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
+            data = {
+                'image_url': img,
+                'is_carousel_item': 'true',
+                'access_token': access_token,
+                'appsecret_proof': appsecret_proof,
+            }
+            resp = requests.post(media_url, data=data, timeout=10)
+            try:
+                rj = resp.json()
+            except Exception:
+                print('[Instagram carousel] invalid json response:', resp.text)
+                continue
+            cid = rj.get('id')
+            if cid:
+                child_ids.append(cid)
+            else:
+                print('[Instagram carousel] child media creation failed:', rj)
+        except Exception as e:
+            print('[Instagram carousel] error creating child media:', e)
+            print(traceback.format_exc())
+
+    if not child_ids:
+        print('[Instagram carousel] no child media created, aborting')
+        return
+
+    try:
+        parent_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
+        data = {
+            'children': json.dumps(child_ids),
+            'caption': message,
+            'access_token': access_token,
+            'appsecret_proof': appsecret_proof,
+        }
+        resp = requests.post(parent_url, data=data, timeout=10)
+        try:
+            rj = resp.json()
+        except Exception:
+            print('[Instagram carousel] parent media invalid json:', resp.text)
+            return
+        creation_id = rj.get('id')
+        if not creation_id:
+            print('[Instagram carousel] failed to create parent container:', rj)
+            return
+
+        publish_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media_publish'
+        publish_data = {
+            'creation_id': creation_id,
+            'access_token': access_token,
+            'appsecret_proof': appsecret_proof,
+        }
+        pub_resp = requests.post(publish_url, data=publish_data, timeout=10)
+        try:
+            pub_rj = pub_resp.json()
+        except Exception:
+            print('[Instagram carousel] publish invalid json:', pub_resp.text)
+            return
+        print('[Instagram carousel] publish response:', pub_rj)
+    except Exception as e:
+        print('[Instagram carousel] error publishing carousel:', e)
+        print(traceback.format_exc())
+
 @receiver(post_save, sender=ProductImage)
 def announce_product_image(sender, instance, created, **kwargs):
     """When a ProductImage is saved (especially primary), post the image to FB and IG.
@@ -331,14 +481,29 @@ def announce_product_image(sender, instance, created, **kwargs):
                 if not image_url:
                     return
 
-                # If URL is relative, try to upload to Cloudinary (if configured)
+                # If URL is relative, or if it points to our SITE_URL (self-hosted),
+                # prefer uploading to Cloudinary to avoid making HTTP requests to our
+                # own site from the worker (which can time out).
+                site_url = os.environ.get('SITE_URL') or os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
+                normalized_site = None
+                if site_url:
+                    if not site_url.startswith('http'):
+                        site_url = 'https://' + site_url
+                    normalized_site = site_url.rstrip('/')
+
+                should_upload = False
                 if image_url.startswith('/'):
+                    should_upload = True
+                elif normalized_site and image_url.startswith(normalized_site):
+                    should_upload = True
+
+                if should_upload:
                     uploaded = _upload_image_to_cloudinary(instance.image)
                     if uploaded:
                         image_url = uploaded
                     else:
-                        print(f"[ProductImage signal] Unable to build absolute URL or upload to Cloudinary for image: {instance}")
-                        return
+                        print(f"[ProductImage signal] Unable to upload to Cloudinary for image: {instance}")
+                        # fallthrough: we'll try to verify the existing URL (may timeout)
 
                 # Build sizes/stock/price string
                 size_lines = []
