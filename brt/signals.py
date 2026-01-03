@@ -52,6 +52,32 @@ def _verify_image_url(image_url, timeout=10):
         return False, info
 
 
+def _build_full_image_url(image_field):
+    """Return an absolute URL for an ImageField. Prefers already-absolute URLs.
+
+    Falls back to using SITE_URL env var or RENDER_EXTERNAL_HOSTNAME to
+    prefix relative `image_field.url` values.
+    """
+    if not image_field:
+        return None
+    try:
+        url = image_field.url
+    except Exception:
+        return None
+    if url.startswith('http://') or url.startswith('https://'):
+        return url
+
+    # Try SITE_URL env var first, then Render hostname, then settings
+    site_url = os.environ.get('SITE_URL') or os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
+    if site_url:
+        if not site_url.startswith('http'):
+            site_url = 'https://' + site_url
+        return site_url.rstrip('/') + url
+
+    # No way to build absolute URL; return relative URL so caller can decide
+    return url
+
+
 def post_to_facebook_page(message, image_url=None):
     page_id = getattr(settings, 'FACEBOOK_PAGE_ID', None)
     access_token = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
@@ -250,10 +276,7 @@ def announce_product_image(sender, instance, created, **kwargs):
         # Only act when the image file exists on the instance
         if not getattr(instance, 'image', None):
             return
-        try:
-            image_url = instance.image.url
-        except Exception:
-            image_url = None
+        image_url = _build_full_image_url(instance.image)
         from django.db import transaction
         def do_post():
             try:
@@ -261,11 +284,11 @@ def announce_product_image(sender, instance, created, **kwargs):
                 # Only act when the image file exists on the instance
                 if not getattr(instance, 'image', None):
                     return
-                try:
-                    image_url = instance.image.url
-                except Exception:
-                    image_url = None
-                if not image_url:
+                image_url = _build_full_image_url(instance.image)
+                if not image_url or image_url.startswith('/'):
+                    # If we still have a relative URL and no SITE_URL available,
+                    # abort posting because external APIs need absolute URLs.
+                    print(f"[ProductImage signal] Unable to build absolute URL for image: {instance}")
                     return
 
                 # Build sizes/stock/price string
