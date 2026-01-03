@@ -614,6 +614,7 @@ form {
     margin: 0 0 15px;
     color: #F8D800;
     text-shadow: 1px 1px 0 black;
+    font-family: 'Arial', 'Helvetica', sans-serif;
 }
 
 .products_grid .slides {
