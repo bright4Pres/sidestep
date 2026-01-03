@@ -429,16 +429,18 @@ def post_instagram_carousel(message, image_urls):
                     print(f'[Instagram carousel] Cropping from {width}x{height} to {right-left}x{bottom-top}')
                     pil_img = pil_img.crop((left, top, right, bottom))
                     
-                    # Scale up to Instagram's recommended size (1080px wide for landscape)
+                    # Scale up to Instagram's maximum size (1440px for best quality)
                     crop_width, crop_height = pil_img.size
-                    target_width = 1080
-                    target_height = int(target_width / max_ratio) if aspect_ratio > max_ratio else int(target_width / min_ratio)
-                    pil_img = pil_img.resize((target_width, target_height), PILImage.LANCZOS)
-                    print(f'[Instagram carousel] Resized to {target_width}x{target_height} for full screen display')
+                    # Only resize if smaller than 1440px to avoid quality loss
+                    if crop_width < 1440:
+                        target_width = 1440
+                        target_height = int(target_width / (crop_width / crop_height))
+                        pil_img = pil_img.resize((target_width, target_height), PILImage.LANCZOS)
+                        print(f'[Instagram carousel] Upscaled to {target_width}x{target_height} for maximum quality')
                     
-                    # Upload resized to Cloudinary
+                    # Upload resized to Cloudinary as PNG for lossless quality
                     buf = BytesIO()
-                    pil_img.save(buf, format='JPEG', quality=95)
+                    pil_img.save(buf, format='PNG', optimize=True)
                     buf.seek(0)
                     try:
                         import cloudinary.uploader
