@@ -111,16 +111,41 @@ class ProductAdmin(admin.ModelAdmin):
             product.save(update_fields=['is_published', 'published_at'])
             # Call posting helpers (if available)
             try:
-                from .signals import post_multiple_to_facebook, post_instagram_carousel
-                # Collect image URLs (may be relative; signals will handle upload/absolute conversion)
+                from .signals import post_multiple_to_facebook, post_instagram_carousel, _build_full_image_url, _upload_image_to_cloudinary
+                import os
+                from django.conf import settings
+                
+                # Collect and process image URLs (upload local images to Cloudinary)
                 image_urls = []
                 for img in product.images.all().order_by('order'):
-                    if getattr(img, 'image', None):
-                        try:
-                            image_urls.append(img.image.url)
-                        except Exception:
-                            # skip if url not available
-                            continue
+                    if not getattr(img, 'image', None):
+                        continue
+                    
+                    img_url = _build_full_image_url(img.image)
+                    if not img_url:
+                        continue
+                    
+                    # If URL is relative or self-hosted, upload to Cloudinary
+                    site_url = os.environ.get('SITE_URL') or os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
+                    normalized_site = None
+                    if site_url:
+                        if not site_url.startswith('http'):
+                            site_url = 'https://' + site_url
+                        normalized_site = site_url.rstrip('/')
+                    
+                    should_upload = False
+                    if img_url.startswith('/'):
+                        should_upload = True
+                    elif normalized_site and img_url.startswith(normalized_site):
+                        should_upload = True
+                    
+                    if should_upload:
+                        cloudinary_url = _upload_image_to_cloudinary(img.image)
+                        if cloudinary_url:
+                            img_url = cloudinary_url
+                    
+                    image_urls.append(img_url)
+                
                 # Build sizes/stock/price string
                 size_lines = []
                 for size_obj in product.sizes.all():
@@ -170,14 +195,41 @@ class ProductAdmin(admin.ModelAdmin):
         product.save(update_fields=['is_published', 'published_at'])
         # Post to FB/IG
         try:
-            from .signals import post_multiple_to_facebook, post_instagram_carousel
+            from .signals import post_multiple_to_facebook, post_instagram_carousel, _build_full_image_url, _upload_image_to_cloudinary
+            import os
+            from django.conf import settings
+            
+            # Collect and process image URLs (upload local images to Cloudinary)
             image_urls = []
             for img in product.images.all().order_by('order'):
-                if getattr(img, 'image', None):
-                    try:
-                        image_urls.append(img.image.url)
-                    except Exception:
-                        continue
+                if not getattr(img, 'image', None):
+                    continue
+                
+                img_url = _build_full_image_url(img.image)
+                if not img_url:
+                    continue
+                
+                # If URL is relative or self-hosted, upload to Cloudinary
+                site_url = os.environ.get('SITE_URL') or os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
+                normalized_site = None
+                if site_url:
+                    if not site_url.startswith('http'):
+                        site_url = 'https://' + site_url
+                    normalized_site = site_url.rstrip('/')
+                
+                should_upload = False
+                if img_url.startswith('/'):
+                    should_upload = True
+                elif normalized_site and img_url.startswith(normalized_site):
+                    should_upload = True
+                
+                if should_upload:
+                    cloudinary_url = _upload_image_to_cloudinary(img.image)
+                    if cloudinary_url:
+                        img_url = cloudinary_url
+                
+                image_urls.append(img_url)
+            
             # Build sizes/stock/price string
             size_lines = []
             for size_obj in product.sizes.all():
