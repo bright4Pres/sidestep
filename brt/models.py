@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 import uuid
+from decimal import Decimal
 
 class Product(models.Model):
     CATEGORY_CHOICES = [
@@ -189,7 +190,13 @@ class OrderItem(models.Model):
     quantity = models.IntegerField()
     
     def subtotal(self):
-        return self.price * self.quantity
+        # Guard against incomplete inline forms where price or quantity may be None
+        if self.price is None or self.quantity is None:
+            return Decimal('0.00')
+        try:
+            return self.price * self.quantity
+        except Exception:
+            return Decimal('0.00')
     
     def __str__(self):
         return f"{self.product_name} ({self.size}) x{self.quantity}"
