@@ -1,5 +1,7 @@
 
 import os
+from dotenv import load_dotenv  
+load_dotenv()
 # Facebook/Instagram Access Tokens and IDs (for auto-posting)
 FACEBOOK_PAGE_ACCESS_TOKEN = os.environ.get('FACEBOOK_PAGE_ACCESS_TOKEN')
 FACEBOOK_PAGE_ID = os.environ.get('FACEBOOK_PAGE_ID')

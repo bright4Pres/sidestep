@@ -461,6 +461,7 @@ def post_instagram_carousel(message, image_urls):
                 'access_token': access_token,
                 'appsecret_proof': appsecret_proof,
             }
+            print(f'[Instagram carousel] Creating child media for URL: {img}')
             resp = requests.post(media_url, data=data, timeout=10)
             try:
                 rj = resp.json()
@@ -470,6 +471,7 @@ def post_instagram_carousel(message, image_urls):
             cid = rj.get('id')
             if cid:
                 child_ids.append(cid)
+                print(f'[Instagram carousel] Child media created successfully: {cid}')
             else:
                 print('[Instagram carousel] child media creation failed:', rj)
         except Exception as e:
@@ -481,13 +483,16 @@ def post_instagram_carousel(message, image_urls):
         return
 
     try:
+        print(f'[Instagram carousel] Creating parent container with {len(child_ids)} children: {child_ids}')
         parent_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
         data = {
-            'children': json.dumps(child_ids),
+            'media_type': 'CAROUSEL',
+            'children': ','.join(child_ids),
             'caption': message,
             'access_token': access_token,
             'appsecret_proof': appsecret_proof,
         }
+        print(f'[Instagram carousel] Parent container data: media_type=CAROUSEL, children={",".join(child_ids)}, caption length={len(message)}')
         resp = requests.post(parent_url, data=data, timeout=10)
         try:
             rj = resp.json()
