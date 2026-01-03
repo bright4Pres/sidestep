@@ -8,4 +8,3 @@ psycopg2-binary==2.9.9
 cloudinary==1.36.0
 django-cloudinary-storage==0.3.0
 requests
-rembg==2.0.50
