@@ -460,51 +460,60 @@ def post_instagram_carousel(message, image_urls):
 
 @receiver(post_save, sender=ProductImage)
 def announce_product_image(sender, instance, created, **kwargs):
-    """When a ProductImage is saved (especially primary), post the image to FB and IG.
-
-    This handles the case where the Product was created before the image was available.
+    """When a ProductImage is saved, post ALL product images as a carousel to FB and IG.
+    
+    This creates a single multi-image post instead of individual posts per image.
     """
     try:
         product = instance.product
         # Only act when the image file exists on the instance
         if not getattr(instance, 'image', None):
             return
-        image_url = _build_full_image_url(instance.image)
+        
         from django.db import transaction
         def do_post():
             try:
                 product = instance.product
-                # Only act when the image file exists on the instance
-                if not getattr(instance, 'image', None):
+                
+                # Collect ALL image URLs for this product
+                image_urls = []
+                for img in product.images.all().order_by('order'):
+                    if not getattr(img, 'image', None):
+                        continue
+                    img_url = _build_full_image_url(img.image)
+                    if not img_url:
+                        continue
+                    
+                    # If URL is relative or self-hosted, upload to Cloudinary
+                    site_url = os.environ.get('SITE_URL') or os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
+                    normalized_site = None
+                    if site_url:
+                        if not site_url.startswith('http'):
+                            site_url = 'https://' + site_url
+                        normalized_site = site_url.rstrip('/')
+                    
+                    should_upload = False
+                    if img_url.startswith('/'):
+                        should_upload = True
+                    elif normalized_site and img_url.startswith(normalized_site):
+                        should_upload = True
+                    
+                    if should_upload:
+                        uploaded = _upload_image_to_cloudinary(img.image)
+                        if uploaded:
+                            img_url = uploaded
+                        else:
+                            print(f"[ProductImage signal] Unable to upload to Cloudinary for image: {img}")
+                            # Skip this image if upload failed and it's relative
+                            if img_url.startswith('/'):
+                                continue
+                    
+                    image_urls.append(img_url)
+                
+                if not image_urls:
+                    print(f"[ProductImage signal] No valid images to post for product {product.id}")
                     return
-                image_url = _build_full_image_url(instance.image)
-                if not image_url:
-                    return
-
-                # If URL is relative, or if it points to our SITE_URL (self-hosted),
-                # prefer uploading to Cloudinary to avoid making HTTP requests to our
-                # own site from the worker (which can time out).
-                site_url = os.environ.get('SITE_URL') or os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
-                normalized_site = None
-                if site_url:
-                    if not site_url.startswith('http'):
-                        site_url = 'https://' + site_url
-                    normalized_site = site_url.rstrip('/')
-
-                should_upload = False
-                if image_url.startswith('/'):
-                    should_upload = True
-                elif normalized_site and image_url.startswith(normalized_site):
-                    should_upload = True
-
-                if should_upload:
-                    uploaded = _upload_image_to_cloudinary(instance.image)
-                    if uploaded:
-                        image_url = uploaded
-                    else:
-                        print(f"[ProductImage signal] Unable to upload to Cloudinary for image: {instance}")
-                        # fallthrough: we'll try to verify the existing URL (may timeout)
-
+                
                 # Build sizes/stock/price string
                 size_lines = []
                 for size_obj in product.sizes.all():
@@ -512,7 +521,7 @@ def announce_product_image(sender, instance, created, **kwargs):
                     size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{price}"
                     size_lines.append(size_str)
                 sizes_info = "\n".join(size_lines)
-
+                
                 message = (
                     f"🚨 New Photos Just In! 🚨\n"
                     f"Check out the {product.brand} {product.name}—now with more angles!\n\n"
@@ -520,16 +529,23 @@ def announce_product_image(sender, instance, created, **kwargs):
                     f"See all the details: https://www.sidestep.studio/product/{product.id}/\n"
                     f"Got questions or want to reserve? Slide into our DMs! #sidestep #sneakerupdate"
                 )
-
-                print(f"[ProductImage signal] Posting image for product {product.id}: {image_url}")
-                # Post photo to Facebook (this will create a new post containing the image)
-                post_to_facebook_page(message, image_url)
-
-                # Post to Instagram
-                post_to_instagram(message, image_url)
+                
+                print(f"[ProductImage signal] Posting {len(image_urls)} images as carousel for product {product.id}")
+                # Post as multi-image carousel
+                post_multiple_to_facebook(message, image_urls)
+                post_instagram_carousel(message, image_urls)
+                
+                # Mark product as published after successful posting
+                if not product.is_published:
+                    from django.utils import timezone
+                    product.is_published = True
+                    product.published_at = timezone.now()
+                    product.save(update_fields=['is_published', 'published_at'])
+                    print(f"[ProductImage signal] Marked product {product.id} as published")
             except Exception as e:
                 print('[ProductImage signal] Error handling product image post:', e)
                 print(traceback.format_exc())
+        
         # Run the external-posting work in a background thread so the DB
         # transaction/worker isn't blocked by network calls (prevents timeouts).
         transaction.on_commit(lambda: threading.Thread(target=do_post, daemon=True).start())
