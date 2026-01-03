@@ -543,6 +543,11 @@ def announce_product_image(sender, instance, created, **kwargs):
         if not getattr(instance, 'image', None):
             return
         
+        # Skip if product is already published
+        if product.is_published:
+            print(f'[ProductImage signal] Skipping post for product {product.id} (already published)')
+            return
+        
         # Deduplication: only post once per product within 60 seconds
         cache_key = f'product_posted_{product.id}'
         if cache.get(cache_key):
