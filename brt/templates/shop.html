@@ -101,8 +101,8 @@
             <div class="products_grid">
                 {% for product in products %}
                 <section class="sneaker">
-                    <h3 class="title">{{ product.brand }}</h3>
-                    <p class="name">{{ product.name }}</p>
+                    <h3 class="title">{{ product.name }}</h3>
+                    <p class="name">{{ product.brand }}</p>
                     <p class="price">{{ product.price_range }}</p>
                     <div class="slides">
                         {% for img in product.images.all %}
