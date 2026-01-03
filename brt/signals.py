@@ -6,6 +6,7 @@ def get_appsecret_proof(access_token, app_secret):
 import os
 import traceback
 import time
+import threading
 import requests
 import hmac
 import hashlib
@@ -20,7 +21,7 @@ This file verifies image URLs and logs full API responses to help debug failures
 """
 
 
-def _verify_image_url(image_url, timeout=10):
+def _verify_image_url(image_url, timeout=5):
     """Verify image URL is reachable and looks like an image.
 
     Returns (ok: bool, info: dict).
@@ -50,6 +51,18 @@ def _verify_image_url(image_url, timeout=10):
     except Exception as e:
         info['error'] = str(e)
         return False, info
+
+
+# Log environment detection once at import so Render logs show what env vars are available
+try:
+    _site = os.environ.get('SITE_URL')
+    _render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME') or getattr(settings, 'RENDER_EXTERNAL_HOSTNAME', None)
+    _cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+    _cloud_key = bool(os.environ.get('CLOUDINARY_API_KEY'))
+    _cloud_secret = bool(os.environ.get('CLOUDINARY_API_SECRET'))
+    print(f"[signals env] SITE_URL={_site!r}, RENDER_EXTERNAL_HOSTNAME={_render_host!r}, CLOUDINARY_CLOUD_NAME={_cloud_name!r}, CLOUD_KEY_SET={_cloud_key}, CLOUD_SECRET_SET={_cloud_secret}")
+except Exception:
+    pass
 
 
 def _build_full_image_url(image_field):
@@ -141,7 +154,7 @@ def post_to_facebook_page(message, image_url=None):
         }
 
     try:
-        response = requests.post(url, data=data, timeout=20)
+        response = requests.post(url, data=data, timeout=10)
         print('[Facebook] post HTTP status:', response.status_code)
         try:
             resp_json = response.json()
@@ -233,7 +246,7 @@ def post_to_instagram(message, image_url=None):
     }
 
     try:
-        media_resp = requests.post(media_url, data=media_data, timeout=20)
+        media_resp = requests.post(media_url, data=media_data, timeout=10)
         print('[Instagram] media HTTP status:', media_resp.status_code)
         try:
             media_result = media_resp.json()
@@ -278,7 +291,7 @@ def post_to_instagram(message, image_url=None):
             'access_token': access_token,
             'appsecret_proof': appsecret_proof
         }
-        publish_resp = requests.post(publish_url, data=publish_data, timeout=20)
+        publish_resp = requests.post(publish_url, data=publish_data, timeout=10)
         print('[Instagram] publish HTTP status:', publish_resp.status_code)
         try:
             publish_result = publish_resp.json()
@@ -352,7 +365,9 @@ def announce_product_image(sender, instance, created, **kwargs):
             except Exception as e:
                 print('[ProductImage signal] Error handling product image post:', e)
                 print(traceback.format_exc())
-        transaction.on_commit(do_post)
+        # Run the external-posting work in a background thread so the DB
+        # transaction/worker isn't blocked by network calls (prevents timeouts).
+        transaction.on_commit(lambda: threading.Thread(target=do_post, daemon=True).start())
     except Exception as e:
         print('[ProductImage signal] Error in announce_product_image:', e)
         print(traceback.format_exc())
