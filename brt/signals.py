@@ -11,7 +11,9 @@ import threading
 import requests
 import hmac
 import hashlib
+import json
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Product, ProductImage
@@ -396,6 +398,23 @@ def post_instagram_carousel(message, image_urls):
             if not ok:
                 print(f'[Instagram carousel] skipping image (failed verification): {img}')
                 continue
+            # Validate aspect ratio before creating child media
+            try:
+                from PIL import Image as PILImage
+                from io import BytesIO
+                img_resp = requests.get(img, timeout=5)
+                img_resp.raise_for_status()
+                pil_img = PILImage.open(BytesIO(img_resp.content))
+                width, height = pil_img.size
+                aspect_ratio = width / height if height else 0
+                # Instagram carousel requires 0.8 to 1.91 aspect ratio
+                if aspect_ratio < 0.8 or aspect_ratio > 1.91:
+                    print(f'[Instagram carousel] Skipping image (invalid aspect ratio {aspect_ratio:.2f}): {img}')
+                    continue
+            except Exception as e:
+                print(f'[Instagram carousel] Could not validate aspect ratio for {img}: {e}')
+                continue
+            
             media_url = f'https://graph.facebook.com/v19.0/{ig_account_id}/media'
             data = {
                 'image_url': img,
@@ -418,8 +437,8 @@ def post_instagram_carousel(message, image_urls):
             print('[Instagram carousel] error creating child media:', e)
             print(traceback.format_exc())
 
-    if not child_ids:
-        print('[Instagram carousel] no child media created, aborting')
+    if len(child_ids) < 2:
+        print(f'[Instagram carousel] Only {len(child_ids)} valid child media (need at least 2), aborting carousel')
         return
 
     try:
@@ -463,12 +482,21 @@ def announce_product_image(sender, instance, created, **kwargs):
     """When a ProductImage is saved, post ALL product images as a carousel to FB and IG.
     
     This creates a single multi-image post instead of individual posts per image.
+    Uses cache-based deduplication to avoid multiple posts when saving multiple images.
     """
     try:
         product = instance.product
         # Only act when the image file exists on the instance
         if not getattr(instance, 'image', None):
             return
+        
+        # Deduplication: only post once per product within 60 seconds
+        cache_key = f'product_posted_{product.id}'
+        if cache.get(cache_key):
+            print(f'[ProductImage signal] Skipping post for product {product.id} (already posted recently)')
+            return
+        # Set cache lock for 60 seconds
+        cache.set(cache_key, True, 60)
         
         from django.db import transaction
         def do_post():
