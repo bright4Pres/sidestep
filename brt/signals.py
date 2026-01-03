@@ -429,15 +429,26 @@ def post_instagram_carousel(message, image_urls):
                     pil_img = pil_img.crop((left, top, right, bottom))
                     # Upload resized to Cloudinary
                     buf = BytesIO()
-                    pil_img.save(buf, format='JPEG')
+                    pil_img.save(buf, format='JPEG', quality=95)
                     buf.seek(0)
                     try:
                         import cloudinary.uploader
-                        upload_result = cloudinary.uploader.upload(buf, folder="instagram_carousel_resized", resource_type="image")
-                        img = upload_result['secure_url']
+                        print(f'[Instagram carousel] Uploading resized image to Cloudinary...')
+                        upload_result = cloudinary.uploader.upload(
+                            buf, 
+                            folder="instagram_carousel_resized", 
+                            resource_type="image",
+                            timeout=30
+                        )
+                        img = upload_result.get('secure_url')
+                        if not img:
+                            print(f'[Instagram carousel] No secure_url in upload result: {upload_result}, skipping image')
+                            continue
                         print(f'[Instagram carousel] Uploaded resized image to Cloudinary: {img}')
                     except Exception as e:
-                        print(f'[Instagram carousel] Cloudinary upload failed: {e}, skipping image')
+                        print(f'[Instagram carousel] Cloudinary upload failed: {e}')
+                        print(f'[Instagram carousel] Traceback: {traceback.format_exc()}')
+                        print(f'[Instagram carousel] Skipping image')
                         continue
             except Exception as e:
                 print(f'[Instagram carousel] Could not process image {img}: {e}')
