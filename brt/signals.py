@@ -95,7 +95,7 @@ def _build_full_image_url(image_field):
 
 
 def _upload_image_to_cloudinary(image_field):
-    """Upload a local ImageField to Cloudinary with background removal and return the secure URL, or None."""
+    """Upload a local ImageField to Cloudinary and return the secure URL, or None."""
     try:
         import cloudinary.uploader
     except Exception as e:
@@ -103,37 +103,18 @@ def _upload_image_to_cloudinary(image_field):
         return None
 
     try:
-        from io import BytesIO
-        from PIL import Image
-        from rembg import remove
-        
-        # Read the image
         path = getattr(image_field, 'path', None)
         if path:
-            with open(path, 'rb') as f:
-                img_data = f.read()
+            result = cloudinary.uploader.upload(path, folder="sidestep_products", resource_type="image")
         else:
             f = image_field.open('rb')
             try:
-                img_data = f.read()
+                result = cloudinary.uploader.upload(f, folder="sidestep_products", resource_type="image")
             finally:
                 try:
                     f.close()
                 except Exception:
                     pass
-        
-        # Remove background
-        print("[Cloudinary] Removing white background from image...")
-        img_no_bg = remove(img_data)
-        
-        # Convert to PNG (supports transparency)
-        pil_img = Image.open(BytesIO(img_no_bg))
-        buf = BytesIO()
-        pil_img.save(buf, format='PNG')
-        buf.seek(0)
-        
-        # Upload to Cloudinary
-        result = cloudinary.uploader.upload(buf, folder="sidestep_products", resource_type="image")
         secure = result.get('secure_url') if isinstance(result, dict) else None
         print(f"[Cloudinary] upload result secure_url: {secure}")
         return secure
