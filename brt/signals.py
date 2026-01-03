@@ -412,7 +412,7 @@ def post_instagram_carousel(message, image_urls):
                 # Instagram carousel requires 0.8 to 1.91 aspect ratio
                 if aspect_ratio < 0.8 or aspect_ratio > 1.91:
                     print(f'[Instagram carousel] Auto-resizing image (aspect ratio {aspect_ratio:.2f}): {img}')
-                    # Maximize width while fitting within 0.8–1.91
+                    # Always maximize width and crop height to fit
                     min_ratio, max_ratio = 0.8, 1.91
                     
                     if aspect_ratio < min_ratio:
@@ -421,15 +421,13 @@ def post_instagram_carousel(message, image_urls):
                         left, top = 0, max((height - new_height) // 2, 0)
                         right, bottom = width, top + new_height
                     else:
-                        # Too wide - keep full height, crop width to 1.91 ratio
-                        new_width = int(height * max_ratio)
-                        left, top = max((width - new_width) // 2, 0), 0
-                        right, bottom = left + new_width, height
+                        # Too wide - keep full width, crop height to 1.91 ratio
+                        new_height = int(width / max_ratio)
+                        left, top = 0, max((height - new_height) // 2, 0)
+                        right, bottom = width, top + new_height
                     
                     print(f'[Instagram carousel] Cropping from {width}x{height} to {right-left}x{bottom-top}')
                     pil_img = pil_img.crop((left, top, right, bottom))
-                    
-                    # Scale up to Instagram's recommended size (1080px wide for landscape)
                     crop_width, crop_height = pil_img.size
                     target_width = 1080
                     target_height = int(target_width / max_ratio) if aspect_ratio > max_ratio else int(target_width / min_ratio)
