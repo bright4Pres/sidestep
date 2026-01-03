@@ -78,6 +78,36 @@ def _build_full_image_url(image_field):
     return url
 
 
+def _upload_image_to_cloudinary(image_field):
+    """Upload a local ImageField to Cloudinary and return the secure URL, or None."""
+    try:
+        import cloudinary.uploader
+    except Exception as e:
+        print(f"[Cloudinary] cloudinary package not available: {e}")
+        return None
+
+    try:
+        path = getattr(image_field, 'path', None)
+        if path:
+            result = cloudinary.uploader.upload(path, folder="sidestep_products", resource_type="image")
+        else:
+            f = image_field.open('rb')
+            try:
+                result = cloudinary.uploader.upload(f, folder="sidestep_products", resource_type="image")
+            finally:
+                try:
+                    f.close()
+                except Exception:
+                    pass
+        secure = result.get('secure_url') if isinstance(result, dict) else None
+        print(f"[Cloudinary] upload result secure_url: {secure}")
+        return secure
+    except Exception as e:
+        print(f"[Cloudinary] upload failed: {e}")
+        print(traceback.format_exc())
+        return None
+
+
 def post_to_facebook_page(message, image_url=None):
     page_id = getattr(settings, 'FACEBOOK_PAGE_ID', None)
     access_token = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
@@ -285,11 +315,17 @@ def announce_product_image(sender, instance, created, **kwargs):
                 if not getattr(instance, 'image', None):
                     return
                 image_url = _build_full_image_url(instance.image)
-                if not image_url or image_url.startswith('/'):
-                    # If we still have a relative URL and no SITE_URL available,
-                    # abort posting because external APIs need absolute URLs.
-                    print(f"[ProductImage signal] Unable to build absolute URL for image: {instance}")
+                if not image_url:
                     return
+
+                # If URL is relative, try to upload to Cloudinary (if configured)
+                if image_url.startswith('/'):
+                    uploaded = _upload_image_to_cloudinary(instance.image)
+                    if uploaded:
+                        image_url = uploaded
+                    else:
+                        print(f"[ProductImage signal] Unable to build absolute URL or upload to Cloudinary for image: {instance}")
+                        return
 
                 # Build sizes/stock/price string
                 size_lines = []
