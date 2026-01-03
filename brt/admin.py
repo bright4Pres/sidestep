@@ -102,45 +102,45 @@ class ProductAdmin(admin.ModelAdmin):
     actions = ['publish_selected']
 
     def publish_selected(self, request, queryset):
-        """Admin action to publish all selected products."""
+        """Admin action to publish all selected products (always posts, even if already published)."""
         count = 0
         for product in queryset:
-            if not getattr(product, 'is_published', False):
-                product.is_published = True
-                product.published_at = timezone.now()
-                product.save(update_fields=['is_published', 'published_at'])
-                # Call posting helpers (if available)
-                try:
-                    from .signals import post_multiple_to_facebook, post_instagram_carousel
-                    # Collect image URLs (may be relative; signals will handle upload/absolute conversion)
-                    image_urls = []
-                    for img in product.images.all().order_by('order'):
-                        if getattr(img, 'image', None):
-                            try:
-                                image_urls.append(img.image.url)
-                            except Exception:
-                                # skip if url not available
-                                continue
-                    # Build sizes/stock/price string
-                    size_lines = []
-                    for size_obj in product.sizes.all():
-                        size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
-                        size_lines.append(size_str)
-                    sizes_info = "\n".join(size_lines)
-                    message = (
-                        f"🔥 Fresh Drop Alert! 🔥\n"
-                        f"Step up your game with the new {product.brand} {product.name}!\n\n"
-                        f"Sizes & Stock:\n{sizes_info}\n\n"
-                        f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{product.id}/\n"
-                        f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
-                    )
-                    if image_urls:
-                        post_multiple_to_facebook(message, image_urls)
-                        post_instagram_carousel(message, image_urls)
-                except Exception:
-                    # don't block the admin action on posting errors
-                    pass
-                count += 1
+            # Always mark as published and update timestamp
+            product.is_published = True
+            product.published_at = timezone.now()
+            product.save(update_fields=['is_published', 'published_at'])
+            # Call posting helpers (if available)
+            try:
+                from .signals import post_multiple_to_facebook, post_instagram_carousel
+                # Collect image URLs (may be relative; signals will handle upload/absolute conversion)
+                image_urls = []
+                for img in product.images.all().order_by('order'):
+                    if getattr(img, 'image', None):
+                        try:
+                            image_urls.append(img.image.url)
+                        except Exception:
+                            # skip if url not available
+                            continue
+                # Build sizes/stock/price string
+                size_lines = []
+                for size_obj in product.sizes.all():
+                    size_str = f"{size_obj.size} ({size_obj.stock}) - ₱{size_obj.price}"
+                    size_lines.append(size_str)
+                sizes_info = "\n".join(size_lines)
+                message = (
+                    f"🔥 Fresh Drop Alert! 🔥\n"
+                    f"Step up your game with the new {product.brand} {product.name}!\n\n"
+                    f"Sizes & Stock:\n{sizes_info}\n\n"
+                    f"Tap the link to see more photos and details: https://www.sidestep.studio/product/{product.id}/\n"
+                    f"DM us to reserve your pair or ask questions! #sidestep #sneakerhead #newdrop"
+                )
+                if image_urls:
+                    post_multiple_to_facebook(message, image_urls)
+                    post_instagram_carousel(message, image_urls)
+            except Exception:
+                # don't block the admin action on posting errors
+                pass
+            count += 1
         self.message_user(request, f"Published {count} products.")
     publish_selected.short_description = 'Publish selected products (post to FB/IG)'
 
