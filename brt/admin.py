@@ -9,14 +9,25 @@ from django.http import HttpResponseRedirect
 from .models import Product, ProductImage, ProductSize, Order, OrderItem
 
 
+class ProductImageInlineForm(forms.ModelForm):
+    class Meta:
+        model = ProductImage
+        fields = '__all__'
+        help_texts = {
+            'order': 'Lower numbers appear on top (0 = first image shown)',
+        }
+
+
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
+    form = ProductImageInlineForm
     extra = 1  # Show 1 empty form by default
     max_num = 5  # Maximum 5 images
     min_num = 0  # Allow zero images (so delete works)
     can_delete = False  # Hide the default delete checkbox
     fields = ['image_preview', 'image', 'is_primary', 'order', 'delete_button']
     readonly_fields = ['image_preview', 'delete_button']
+    ordering = ['order', '-is_primary']  # Lower order numbers appear on top
     
     def image_preview(self, obj):
         if obj.image:
